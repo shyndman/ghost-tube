@@ -1,12 +1,17 @@
-import { getPlayer, PlayerState, YTPlayer } from './player-api';
+import { getPlayer, PlayerState, type YTPlayer } from './player-api';
 
 class HomeAssistantHandler {
-  private videoId: string | null = null;
+  private _videoId: string | null = null;
   private video: HTMLVideoElement | null = null;
   private player: YTPlayer | null = null;
   private destroyed = false;
   private lastReportedState: PlayerState | null = null;
   private lastReportedTime: number = 0;
+
+  // Video metadata
+  private videoTitle: string | null = null;
+  private videoThumbnail: string | null = null;
+  private videoDuration: number | null = null;
 
   // Event handlers bound to instance
   private boundHandlers = {
@@ -22,21 +27,28 @@ class HomeAssistantHandler {
   };
 
   constructor(videoId: string) {
-    this.videoId = videoId;
+    this._videoId = videoId;
     console.info('[HASS] Creating HomeAssistantHandler for video:', videoId);
+  }
+
+  get videoId() {
+    return this._videoId;
   }
 
   async init() {
     console.info('[HASS] Initializing HomeAssistantHandler...');
-    
+
     // Get player element
     try {
       console.info('[HASS] Waiting for player element...');
       this.player = await getPlayer();
       console.info('[HASS] Player element found:', this.player);
-      
+
       // Attach player state change listener
-      this.player.addEventListener('onStateChange', this.boundHandlers.onPlayerStateChange);
+      this.player.addEventListener(
+        'onStateChange',
+        this.boundHandlers.onPlayerStateChange
+      );
       console.info('[HASS] Attached onStateChange listener to player');
     } catch (error) {
       console.error('[HASS] Failed to get player:', error);
@@ -44,12 +56,15 @@ class HomeAssistantHandler {
 
     // Get video element
     this.attachToVideo();
+
+    // Extract video metadata
+    this.extractVideoMetadata();
   }
 
   private attachToVideo() {
     console.info('[HASS] Looking for video element...');
     const video = document.querySelector('video');
-    
+
     if (!video) {
       console.info('[HASS] No video element found, retrying in 500ms...');
       if (!this.destroyed) {
@@ -76,8 +91,14 @@ class HomeAssistantHandler {
     video.addEventListener('pause', this.boundHandlers.onVideoPause);
     video.addEventListener('timeupdate', this.boundHandlers.onVideoTimeUpdate);
     video.addEventListener('ended', this.boundHandlers.onVideoEnded);
-    video.addEventListener('durationchange', this.boundHandlers.onVideoDurationChange);
-    video.addEventListener('loadedmetadata', this.boundHandlers.onVideoLoadedMetadata);
+    video.addEventListener(
+      'durationchange',
+      this.boundHandlers.onVideoDurationChange
+    );
+    video.addEventListener(
+      'loadedmetadata',
+      this.boundHandlers.onVideoLoadedMetadata
+    );
     video.addEventListener('seeking', this.boundHandlers.onVideoSeeking);
     video.addEventListener('seeked', this.boundHandlers.onVideoSeeked);
 
@@ -88,9 +109,12 @@ class HomeAssistantHandler {
   private onPlayerStateChange(state: PlayerState) {
     const stateName = PlayerState[state] || 'UNKNOWN';
     console.info(`[HASS] Player state changed: ${stateName} (${state})`, {
-      previousState: this.lastReportedState !== null ? PlayerState[this.lastReportedState] : 'none',
+      previousState:
+        this.lastReportedState !== null
+          ? PlayerState[this.lastReportedState]
+          : 'none',
       timestamp: Date.now(),
-      videoId: this.videoId
+      videoId: this._videoId
     });
     this.lastReportedState = state;
   }
@@ -119,7 +143,9 @@ class HomeAssistantHandler {
       console.info('[HASS] Video time update', {
         currentTime,
         duration: this.video?.duration,
-        progress: this.video?.duration ? (currentTime / this.video.duration * 100).toFixed(1) + '%' : 'N/A'
+        progress: this.video?.duration
+          ? ((currentTime / this.video.duration) * 100).toFixed(1) + '%'
+          : 'N/A'
       });
       this.lastReportedTime = currentTime;
     }
@@ -148,6 +174,17 @@ class HomeAssistantHandler {
       videoHeight: this.video?.videoHeight,
       timestamp: Date.now()
     });
+
+    // Capture video duration
+    if (this.video?.duration) {
+      this.videoDuration = this.video.duration;
+      console.info(
+        '[HASS] Video duration captured:',
+        this.videoDuration,
+        'seconds'
+      );
+      this.logMetadataSummary();
+    }
   }
 
   private onVideoSeeking() {
@@ -164,6 +201,73 @@ class HomeAssistantHandler {
     });
   }
 
+  // Video metadata extraction methods
+  private extractVideoMetadata() {
+    console.info('[HASS] Extracting video metadata...');
+    this.extractVideoTitle();
+    this.extractVideoThumbnail();
+  }
+
+  private extractVideoTitle() {
+    console.info('[HASS] Looking for video title...');
+
+    // Try to find title element on YouTube TV watch page
+    const titleElement = document.querySelector(
+      'yt-formatted-string.ytFormattedStringHost.ytLrVideoTitleTrayTitleText'
+    );
+
+    if (!titleElement) {
+      console.info('[HASS] No title element found, retrying in 500ms...');
+      if (!this.destroyed) {
+        setTimeout(() => this.extractVideoTitle(), 500);
+      }
+      return;
+    }
+
+    const title =
+      titleElement.textContent?.trim() ||
+      titleElement.getAttribute('data-title') ||
+      null;
+
+    if (title) {
+      this.videoTitle = title;
+      console.info('[HASS] Video title extracted:', title);
+      this.logMetadataSummary();
+    } else {
+      console.info(
+        '[HASS] Title element found but no text content, retrying in 500ms...'
+      );
+      if (!this.destroyed) {
+        setTimeout(() => this.extractVideoTitle(), 500);
+      }
+    }
+  }
+
+  private extractVideoThumbnail() {
+    console.info('[HASS] Extracting video thumbnail...');
+
+    // Construct thumbnail URL from video ID (most reliable method)
+    if (this._videoId) {
+      this.videoThumbnail = `https://i.ytimg.com/vi/${this._videoId}/hqdefault.jpg`;
+      console.info('[HASS] Video thumbnail URL:', this.videoThumbnail);
+    } else {
+      console.info('[HASS] No video ID available for thumbnail construction');
+    }
+  }
+
+  private logMetadataSummary() {
+    // Log complete metadata when we have all pieces
+    if (this.videoTitle && this.videoThumbnail && this.videoDuration) {
+      console.info('[HASS] Complete video metadata collected:', {
+        videoId: this._videoId,
+        title: this.videoTitle,
+        thumbnail: this.videoThumbnail,
+        duration: this.videoDuration,
+        timestamp: Date.now()
+      });
+    }
+  }
+
   destroy() {
     console.info('[HASS] Destroying HomeAssistantHandler...');
     this.destroyed = true;
@@ -171,21 +275,43 @@ class HomeAssistantHandler {
     // Remove player listeners
     if (this.player) {
       // Note: Player API doesn't support removeEventListener
-      console.info('[HASS] Player listeners cannot be removed (API limitation)');
+      console.info(
+        '[HASS] Player listeners cannot be removed (API limitation)'
+      );
     }
 
     // Remove video listeners
     if (this.video) {
       this.video.removeEventListener('play', this.boundHandlers.onVideoPlay);
       this.video.removeEventListener('pause', this.boundHandlers.onVideoPause);
-      this.video.removeEventListener('timeupdate', this.boundHandlers.onVideoTimeUpdate);
+      this.video.removeEventListener(
+        'timeupdate',
+        this.boundHandlers.onVideoTimeUpdate
+      );
       this.video.removeEventListener('ended', this.boundHandlers.onVideoEnded);
-      this.video.removeEventListener('durationchange', this.boundHandlers.onVideoDurationChange);
-      this.video.removeEventListener('loadedmetadata', this.boundHandlers.onVideoLoadedMetadata);
-      this.video.removeEventListener('seeking', this.boundHandlers.onVideoSeeking);
-      this.video.removeEventListener('seeked', this.boundHandlers.onVideoSeeked);
+      this.video.removeEventListener(
+        'durationchange',
+        this.boundHandlers.onVideoDurationChange
+      );
+      this.video.removeEventListener(
+        'loadedmetadata',
+        this.boundHandlers.onVideoLoadedMetadata
+      );
+      this.video.removeEventListener(
+        'seeking',
+        this.boundHandlers.onVideoSeeking
+      );
+      this.video.removeEventListener(
+        'seeked',
+        this.boundHandlers.onVideoSeeked
+      );
       console.info('[HASS] Removed all video event listeners');
     }
+
+    // Reset metadata
+    this.videoTitle = null;
+    this.videoThumbnail = null;
+    this.videoDuration = null;
 
     this.video = null;
     this.player = null;
@@ -218,44 +344,53 @@ function uninitializeHomeAssistant() {
 }
 
 // URL change monitoring
-window.addEventListener('hashchange', () => {
-  const newURL = new URL(location.hash.substring(1), location.href);
-  const pathname = newURL.pathname;
-  const videoId = newURL.searchParams.get('v');
-  
-  console.info('[HASS] Hash change detected', {
-    pathname,
-    videoId,
-    fullHash: location.hash,
-    hasInstance: !!window.homeAssistant,
-    currentVideoId: window.homeAssistant?.videoId
-  });
+window.addEventListener(
+  'hashchange',
+  () => {
+    const newURL = new URL(location.hash.substring(1), location.href);
+    const pathname = newURL.pathname;
+    const videoId = newURL.searchParams.get('v');
 
-  // Uninitialize when not on /watch
-  if (pathname !== '/watch' && window.homeAssistant) {
-    console.info('[HASS] Not on /watch page, uninitializing...');
-    uninitializeHomeAssistant();
-    return;
-  }
+    console.info('[HASS] Hash change detected', {
+      pathname,
+      videoId,
+      fullHash: location.hash,
+      hasInstance: !!window.homeAssistant,
+      currentVideoId: window.homeAssistant?.videoId
+    });
 
-  // Check if we need to reload for a new video
-  const needsReload = videoId && (!window.homeAssistant || window.homeAssistant.videoId !== videoId);
-  
-  console.info('[HASS] Reload check', {
-    needsReload,
-    reason: !videoId ? 'no video ID' : 
-            !window.homeAssistant ? 'no instance' : 
-            window.homeAssistant.videoId !== videoId ? 'different video' : 
-            'same video'
-  });
+    // Uninitialize when not on /watch
+    if (pathname !== '/watch' && window.homeAssistant) {
+      console.info('[HASS] Not on /watch page, uninitializing...');
+      uninitializeHomeAssistant();
+      return;
+    }
 
-  if (needsReload) {
-    uninitializeHomeAssistant();
-    console.info('[HASS] Creating new instance for video:', videoId);
-    window.homeAssistant = new HomeAssistantHandler(videoId);
-    window.homeAssistant.init();
-  }
-}, false);
+    // Check if we need to reload for a new video
+    const needsReload =
+      videoId &&
+      (!window.homeAssistant || window.homeAssistant.videoId !== videoId);
+
+    console.info('[HASS] Reload check', {
+      needsReload,
+      reason: !videoId
+        ? 'no video ID'
+        : !window.homeAssistant
+          ? 'no instance'
+          : window.homeAssistant.videoId !== videoId
+            ? 'different video'
+            : 'same video'
+    });
+
+    if (needsReload) {
+      uninitializeHomeAssistant();
+      console.info('[HASS] Creating new instance for video:', videoId);
+      window.homeAssistant = new HomeAssistantHandler(videoId);
+      window.homeAssistant.init();
+    }
+  },
+  false
+);
 
 // Initial check on load
 console.info('[HASS] Module loaded, performing initial check...');
