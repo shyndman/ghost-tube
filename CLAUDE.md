@@ -74,6 +74,7 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 - `thumbnail-quality.ts` - Thumbnail quality enhancement
 - `screensaver-fix.ts` - Prevents screensaver during playback
 - `watch.js` - Watch page enhancements
+- `hass.ts` - Home Assistant integration monitoring video player state
 
 ### Build System
 
@@ -193,3 +194,32 @@ The project uses extensive console logging for debugging:
 - **Source Maps**: Use inline-source-map in development to avoid segfaults
 - **Remote Only**: All debugging done remotely via CLI tools
 - **Performance**: Be mindful of excessive logging on low-spec devices
+
+## MQTT Integration
+
+### MQTT.js v1.14.1 Compatibility
+
+- **Version Constraint**: Using MQTT.js v1.14.1 for Node.js v0.12.2 compatibility
+- **Breaking Change**: MQTT.js v2.0.0+ dropped support for Node.js v0.8, v0.10, and v0.12
+- **Status**: Installed but not yet implemented in application
+- **LTS Support**: v1.x.x series maintained specifically for older Node.js versions
+
+### Future Implementation Notes
+
+When implementing MQTT functionality:
+
+1. **Import**: `const mqtt = require('mqtt');`
+2. **Connection**: `const client = mqtt.connect('mqtt://broker-url');`
+3. **Features Available**:
+   - Full MQTT 3.1.1 support
+   - SSL/TLS connections
+   - WebSocket support
+   - QoS levels 0, 1, 2
+   - Last Will and Testament (LWT)
+   - Username/password authentication
+   - Retained messages
+   - Clean session support
+   - Automatic reconnection
+
+4. **Integration Pattern**: Follow existing module patterns in `src/hass.ts`
+5. **Configuration**: Add MQTT settings to `src/config.js` configuration system
