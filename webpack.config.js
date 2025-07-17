@@ -4,10 +4,11 @@ import CopyPlugin from 'copy-webpack-plugin';
 const makeConfig = (_env, argv) => [
   {
     /**
-     * NOTE: Builds with devtool = 'eval' contain very big eval chunks which seem
-     * to cause segfaults (at least) on nodeJS v0.12.2 used on webOS 3.x.
+     * NOTE: Using inline-source-map for development builds for best webOS compatibility.
      */
     devtool: argv.mode === 'development' ? 'inline-source-map' : 'source-map',
+    
+    target: ['web', 'es2017'],
 
     entry: {
       index: './src/index.js',

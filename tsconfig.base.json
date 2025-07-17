@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     // Language
-    "target": "ESNext",
-    "module": "ESNext",
-    "lib": ["ESNext"],
+    "target": "ES2017",
+    "module": "ESNext", 
+    "lib": ["ES2017", "DOM"],
     "esModuleInterop": true,
 
     // Module handling
