@@ -12,6 +12,8 @@ class HomeAssistantHandler {
   private videoTitle: string | null = null;
   private videoThumbnail: string | null = null;
   private videoDuration: number | null = null;
+  private creatorName: string | null = null;
+  private publishDate: string | null = null;
 
   // Event handlers bound to instance
   private boundHandlers = {
@@ -206,6 +208,8 @@ class HomeAssistantHandler {
     console.info('[HASS] Extracting video metadata...');
     this.extractVideoTitle();
     this.extractVideoThumbnail();
+    this.extractCreatorName();
+    this.extractPublishDate();
   }
 
   private extractVideoTitle() {
@@ -255,14 +259,108 @@ class HomeAssistantHandler {
     }
   }
 
+  private extractCreatorName() {
+    console.info('[HASS] Looking for creator name...');
+
+    // Try to find creator name in the metadata line
+    const metadataLine = document.querySelector('ytlr-video-metadata-line');
+    if (!metadataLine) {
+      console.info('[HASS] No metadata line found, retrying in 500ms...');
+      if (!this.destroyed) {
+        setTimeout(() => this.extractCreatorName(), 500);
+      }
+      return;
+    }
+
+    const creatorElement = metadataLine.querySelector(
+      'yt-formatted-string.ytLrVideoMetadataLineDetailTexts:first-child'
+    );
+
+    if (!creatorElement) {
+      console.info('[HASS] No creator element found, retrying in 500ms...');
+      if (!this.destroyed) {
+        setTimeout(() => this.extractCreatorName(), 500);
+      }
+      return;
+    }
+
+    const creatorName = creatorElement.textContent?.trim() || null;
+
+    if (creatorName) {
+      this.creatorName = creatorName;
+      console.info('[HASS] Creator name extracted:', creatorName);
+      this.logMetadataSummary();
+    } else {
+      console.info(
+        '[HASS] Creator element found but no text content, retrying in 500ms...'
+      );
+      if (!this.destroyed) {
+        setTimeout(() => this.extractCreatorName(), 500);
+      }
+    }
+  }
+
+  private extractPublishDate() {
+    console.info('[HASS] Looking for publish date...');
+
+    // Try to find publish date in the metadata line (last detail text element)
+    const metadataLine = document.querySelector('ytlr-video-metadata-line');
+    if (!metadataLine) {
+      console.info('[HASS] No metadata line found, retrying in 500ms...');
+      if (!this.destroyed) {
+        setTimeout(() => this.extractPublishDate(), 500);
+      }
+      return;
+    }
+
+    const dateElement = metadataLine.querySelector(
+      'yt-formatted-string[aria-label]'
+    );
+
+    if (!dateElement) {
+      console.info('[HASS] No date element found, retrying in 500ms...');
+      if (!this.destroyed) {
+        setTimeout(() => this.extractPublishDate(), 500);
+      }
+      return;
+    }
+
+    const publishDate = dateElement.textContent?.trim() || null;
+    const ariaLabel = dateElement.getAttribute('aria-label');
+
+    if (publishDate) {
+      this.publishDate = publishDate;
+      console.info('[HASS] Publish date extracted:', publishDate);
+      if (ariaLabel) {
+        console.info('[HASS] Full publish date (aria-label):', ariaLabel);
+      }
+      this.logMetadataSummary();
+    } else {
+      console.info(
+        '[HASS] Date element found but no text content, retrying in 500ms...'
+      );
+      if (!this.destroyed) {
+        setTimeout(() => this.extractPublishDate(), 500);
+      }
+    }
+  }
+
   private logMetadataSummary() {
     // Log complete metadata when we have all pieces
-    if (this.videoTitle && this.videoThumbnail && this.videoDuration) {
+    if (
+      this.videoTitle &&
+      this.videoThumbnail &&
+      this.videoDuration &&
+      this.creatorName &&
+      this.publishDate
+    ) {
       console.info('[HASS] Complete video metadata collected:', {
         videoId: this._videoId,
         title: this.videoTitle,
         thumbnail: this.videoThumbnail,
         duration: this.videoDuration,
+        creatorName: this.creatorName,
+        publishDate: this.publishDate,
         timestamp: Date.now()
       });
     }
@@ -312,6 +410,8 @@ class HomeAssistantHandler {
     this.videoTitle = null;
     this.videoThumbnail = null;
     this.videoDuration = null;
+    this.creatorName = null;
+    this.publishDate = null;
 
     this.video = null;
     this.player = null;
