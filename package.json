@@ -23,7 +23,7 @@
   "bugs": "https://github.com/webosbrew/youtube-webos/issues",
   "homepage": "https://github.com/webosbrew/youtube-webos#readme",
   "dependencies": {
-    "mqtt": "^1.14.1",
+    "mqtt": "^4.3.8",
     "tiny-sha256": "^1.0.2",
     "whatwg-fetch": "^3.6.20"
   },

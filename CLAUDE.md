@@ -197,20 +197,22 @@ The project uses extensive console logging for debugging:
 
 ## MQTT Integration
 
-### MQTT.js Modern Compatibility
+### MQTT.js Modern Version
 
-- **Current Version**: Using MQTT.js v1.14.1 (legacy version for Node.js v0.12.2 compatibility)
-- **Upgrade Path**: Can now upgrade to MQTT.js v4.x+ with Node.js v8.12.0 support
+- **Current Version**: MQTT.js v4.3.8 (modern version with Node.js v8.12.0+ support)
+- **Upgrade Complete**: Upgraded from legacy v1.14.1 to modern v4.x
 - **Status**: Installed but not yet implemented in application
-- **Benefits**: Modern versions offer Promise-based API, better TypeScript support, enhanced reconnection logic
+- **Benefits**: Promise-based API, better TypeScript support, enhanced reconnection logic, improved error handling
 
 ### Future Implementation Notes
 
 When implementing MQTT functionality:
 
-1. **Import**: `const mqtt = require('mqtt');`
+1. **Import**: `const mqtt = require('mqtt');` or `import mqtt from 'mqtt';`
 2. **Connection**: `const client = mqtt.connect('mqtt://broker-url');`
-3. **Features Available**:
+3. **Modern API**: Supports both callback and Promise-based patterns
+4. **Features Available (v4.x)**:
+
    - Full MQTT 3.1.1 support
    - SSL/TLS connections
    - WebSocket support
@@ -219,7 +221,10 @@ When implementing MQTT functionality:
    - Username/password authentication
    - Retained messages
    - Clean session support
-   - Automatic reconnection
+   - Automatic reconnection with exponential backoff
+   - Better TypeScript definitions
+   - Stream-based architecture
+   - Improved error handling and debugging
 
-4. **Integration Pattern**: Follow existing module patterns in `src/hass.ts`
-5. **Configuration**: Add MQTT settings to `src/config.js` configuration system
+5. **Integration Pattern**: Follow existing module patterns in `src/hass.ts`
+6. **Configuration**: Add MQTT settings to `src/config.js` configuration system
