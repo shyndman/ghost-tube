@@ -79,7 +79,7 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 ### Build System
 
 - Webpack-based build with separate entry points for main app and user script
-- Babel transpilation for webOS compatibility (nodeJS v0.12.2 on webOS 3.x)
+- Babel transpilation for modern JavaScript features (targeting Node.js v8.12.0 on webOS TV 6.0+)
 - CSS processing with PostCSS and autoprefixer
 - Source maps for development builds
 
@@ -95,10 +95,10 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 
 ### webOS Constraints
 
-- Target platform uses very old nodeJS (v0.12.2)
-- Avoid eval-based source maps (cause segfaults)
+- Target platform uses Node.js v8.12.0 (webOS TV 6.0+)
+- Chromium 79 web engine with modern JavaScript support
 - Use inline-source-map for development builds
-- Must transpile modern JavaScript features
+- Native ES6+ support (async/await, classes, arrow functions)
 
 ### Testing
 
@@ -190,19 +190,19 @@ The project uses extensive console logging for debugging:
 
 ### Platform-Specific Debugging Constraints
 
-- **Old Runtime**: webOS 3.x uses Node.js v0.12.2 and Chromium 38
-- **Source Maps**: Use inline-source-map in development to avoid segfaults
+- **Modern Runtime**: webOS TV 6.0+ uses Node.js v8.12.0 and Chromium 79
+- **Source Maps**: Use inline-source-map in development for best compatibility
 - **Remote Only**: All debugging done remotely via CLI tools
-- **Performance**: Be mindful of excessive logging on low-spec devices
+- **Performance**: Modern hardware supports more extensive debugging features
 
 ## MQTT Integration
 
-### MQTT.js v1.14.1 Compatibility
+### MQTT.js Modern Compatibility
 
-- **Version Constraint**: Using MQTT.js v1.14.1 for Node.js v0.12.2 compatibility
-- **Breaking Change**: MQTT.js v2.0.0+ dropped support for Node.js v0.8, v0.10, and v0.12
+- **Current Version**: Using MQTT.js v1.14.1 (legacy version for Node.js v0.12.2 compatibility)
+- **Upgrade Path**: Can now upgrade to MQTT.js v4.x+ with Node.js v8.12.0 support
 - **Status**: Installed but not yet implemented in application
-- **LTS Support**: v1.x.x series maintained specifically for older Node.js versions
+- **Benefits**: Modern versions offer Promise-based API, better TypeScript support, enhanced reconnection logic
 
 ### Future Implementation Notes
 
