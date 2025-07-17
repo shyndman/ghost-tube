@@ -23,10 +23,7 @@
   "bugs": "https://github.com/webosbrew/youtube-webos/issues",
   "homepage": "https://github.com/webosbrew/youtube-webos#readme",
   "dependencies": {
-    "@babel/runtime-corejs3": "^7.27.6",
-    "core-js-pure": "^3.43.0",
     "mqtt": "^1.14.1",
-    "regenerator-runtime": "^0.14.1",
     "tiny-sha256": "^1.0.2",
     "whatwg-fetch": "^3.6.20"
   },
