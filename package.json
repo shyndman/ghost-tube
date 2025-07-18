@@ -1,7 +1,7 @@
 {
-  "name": "youtube-webos",
+  "name": "ghost-tube",
   "version": "0.3.8",
-  "description": "Ad-free YouTube app for webOS",
+  "description": "Enhanced YouTube TV app for webOS with Home Assistant integration",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -20,10 +20,10 @@
     "type-check": "tsc -b",
     "prettier-check": "prettier --ignore-path .prettierignore --check ."
   },
-  "repository": "github:webosbrew/youtube-webos",
+  "repository": "github:shyndman/ghost-tube",
   "license": "GPL-3.0-only",
-  "bugs": "https://github.com/webosbrew/youtube-webos/issues",
-  "homepage": "https://github.com/webosbrew/youtube-webos#readme",
+  "bugs": "https://github.com/shyndman/ghost-tube/issues",
+  "homepage": "https://github.com/shyndman/ghost-tube#readme",
   "dependencies": {
     "mqtt": "^5.13.2",
     "tiny-sha256": "^1.0.2",

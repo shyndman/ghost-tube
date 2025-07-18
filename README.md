@@ -1,17 +1,30 @@
-# youtube-webos
+# Ghost-Tube
 
-YouTube App with extended functionalities
+> **Note:** This app's configuration is currently hardcoded for my personal setup. If you'd like a more configurable version or have other feature requests, please [create an issue](https://github.com/shyndman/ghost-tube/issues) and I'll be happy to implement it!
 
-![Configuration Screen](https://github.com/webosbrew/youtube-webos/blob/main/screenshots/1_sm.jpg?raw=true)
-![Segment Skipped](https://github.com/webosbrew/youtube-webos/blob/main/screenshots/2_sm.jpg?raw=true)
+Enhanced YouTube TV app for webOS with Home Assistant integration
+
+_Based on the excellent [youtube-webos](https://github.com/webosbrew/youtube-webos) project by webosbrew_
 
 ## Features
 
-- Advertisements blocking
-- [SponsorBlock](https://sponsor.ajay.app/) integration
+- **🏠 Home Assistant MQTT Integration** - Real-time playback state broadcasting and remote control
+- **🎨 Custom Logo** - Replace YouTube logo with Ghost-Tube branding
+- **📺 Enhanced YouTube Experience** - Features inherited from [youtube-webos](https://github.com/webosbrew/youtube-webos)
 - [Autostart](#autostart)
 
 **Note:** Configuration screen can be opened by pressing 🟩 GREEN button on the remote.
+
+## Home Assistant Integration
+
+Ghost-Tube integrates seamlessly with Home Assistant via MQTT:
+
+- **Real-time state broadcasting**: Video title, creator, thumbnail, duration, playback position
+- **Remote control**: Seek to specific position, play videos by ID
+- **TV standby detection**: Automatically clears media state when TV is off
+- **Auto-discovery**: Automatically configures Home Assistant media player entity
+
+Requires the [bkbilly/mqtt_media_player](https://github.com/bkbilly/mqtt_media_player) custom component.
 
 ## Pre-requisites
 
@@ -19,9 +32,8 @@ YouTube App with extended functionalities
 
 ## Installation
 
-- Use [webOS Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel) - app is published in official webosbrew repo
-- Use [Device Manager app](https://github.com/webosbrew/dev-manager-desktop) - see [Releases](https://github.com/webosbrew/youtube-webos/releases) for a
-  prebuilt `.ipk` binary file
+- Use [webOS Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel)
+- Use [Device Manager app](https://github.com/webosbrew/dev-manager-desktop)
 - Use [webOS TV CLI tools](https://webostv.developer.lge.com/develop/tools/cli-installation) -
   `ares-install youtube...ipk` (For more information on configuring the webOS CLI tools, see [below](#development-tv-setup))
 
@@ -57,13 +69,13 @@ luna-send-pub -n 1 'luna://com.webos.service.eim/deleteDevice' '{"appId":"youtub
 - Clone the repository
 
 ```sh
-git clone https://github.com/webosbrew/youtube-webos.git
+git clone https://github.com/shyndman/ghost-tube.git
 ```
 
 - Enter the folder and build the App, this will generate a `*.ipk` file.
 
 ```sh
-cd youtube-webos
+cd ghost-tube
 
 # Install dependencies (need to do this only when updating local repository / package.json is changed)
 npm install
@@ -82,7 +94,7 @@ This is partially based on <https://webostv.developer.lge.com/develop/getting-st
 
 - Install Developer Mode app from Content Store
 - Enable Developer Mode
-- Enable key server and download TV's private key: `http://TV_IP:9991/webos_rsa`  
+- Enable key server and download TV's private key: `http://TV_IP:9991/webos_rsa`
   The key must be saved under `~/.ssh` (or `%USERPROFILE%\.ssh` on Windows)
 - Configure the device using `ares-setup-device` (`-a` may need to be replaced with `-m` if device named `webos` is already configured)
   - `PASSPHRASE` is the 6-character passphrase printed on screen in developer mode app
