@@ -60,6 +60,7 @@ class MqttManager {
     playmedia: `${MQTT_CONFIG.topicPrefix}/playmedia`,
     play: `${MQTT_CONFIG.topicPrefix}/play`,
     pause: `${MQTT_CONFIG.topicPrefix}/pause`,
+    stop: `${MQTT_CONFIG.topicPrefix}/stop`,
     // Config topic for Home Assistant discovery
     config: `homeassistant/media_player/living_room_tv_youtube/config`
   };
@@ -265,7 +266,8 @@ class MqttManager {
       this.topics.seek,
       this.topics.playmedia,
       this.topics.play,
-      this.topics.pause
+      this.topics.pause,
+      this.topics.stop
     ];
 
     commandTopics.forEach((topic) => {
@@ -300,6 +302,9 @@ class MqttManager {
           break;
         case this.topics.pause:
           this.handlePauseCommand(message);
+          break;
+        case this.topics.stop:
+          this.handleStopCommand(message);
           break;
         default:
           console.warn(`[MQTT] Unknown topic: ${topic}`);
@@ -411,6 +416,23 @@ class MqttManager {
     }
   }
 
+  private handleStopCommand(message: string): void {
+    try {
+      if (message.trim() !== 'stop') {
+        console.warn('[MQTT] Invalid stop command payload:', message);
+        return;
+      }
+
+      console.info('[MQTT] Stop command received');
+
+      // Navigate to YouTube home page to stop current video
+      window.location.hash = '#/';
+      console.info('[MQTT] Navigated to YouTube home page');
+    } catch (error) {
+      console.error('[MQTT] Error handling stop command:', error);
+    }
+  }
+
   private startPositionUpdates(): void {
     this.stopPositionUpdates(); // Clear any existing interval
 
@@ -461,6 +483,8 @@ class MqttManager {
       play_payload: 'play',
       pause_topic: this.topics.pause,
       pause_payload: 'pause',
+      stop_topic: this.topics.stop,
+      stop_payload: 'stop',
 
       // Device information
       device: {
