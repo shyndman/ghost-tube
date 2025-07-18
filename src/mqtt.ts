@@ -58,6 +58,8 @@ class MqttManager {
     // Command topics
     seek: `${MQTT_CONFIG.topicPrefix}/seek`,
     playmedia: `${MQTT_CONFIG.topicPrefix}/playmedia`,
+    play: `${MQTT_CONFIG.topicPrefix}/play`,
+    pause: `${MQTT_CONFIG.topicPrefix}/pause`,
     // Config topic for Home Assistant discovery
     config: `homeassistant/media_player/living_room_tv_youtube/config`
   };
@@ -259,7 +261,12 @@ class MqttManager {
   private subscribeToCommands(): void {
     if (!this.client || !this.client.connected) return;
 
-    const commandTopics = [this.topics.seek, this.topics.playmedia];
+    const commandTopics = [
+      this.topics.seek,
+      this.topics.playmedia,
+      this.topics.play,
+      this.topics.pause
+    ];
 
     commandTopics.forEach((topic) => {
       this.client!.subscribe(topic, { qos: 1 }, (error, granted) => {
@@ -281,10 +288,21 @@ class MqttManager {
       const message = payload.toString();
       console.info(`[MQTT] Received message on ${topic}:`, message, packet);
 
-      if (topic === this.topics.seek) {
-        this.handleSeekCommand(message);
-      } else if (topic === this.topics.playmedia) {
-        this.handlePlayMediaCommand(message);
+      switch (topic) {
+        case this.topics.seek:
+          this.handleSeekCommand(message);
+          break;
+        case this.topics.playmedia:
+          this.handlePlayMediaCommand(message);
+          break;
+        case this.topics.play:
+          this.handlePlayCommand(message);
+          break;
+        case this.topics.pause:
+          this.handlePauseCommand(message);
+          break;
+        default:
+          console.warn(`[MQTT] Unknown topic: ${topic}`);
       }
     } catch (error) {
       console.error('[MQTT] Error handling message:', error);
@@ -343,6 +361,56 @@ class MqttManager {
     }
   }
 
+  private handlePlayCommand(message: string): void {
+    try {
+      if (message.trim() !== 'play') {
+        console.warn('[MQTT] Invalid play command payload:', message);
+        return;
+      }
+
+      console.info('[MQTT] Play command received');
+
+      // Get the video element and play
+      const video = document.querySelector('video') as HTMLVideoElement;
+      if (video) {
+        video
+          .play()
+          .then(() => {
+            console.info('[MQTT] Video playback started');
+          })
+          .catch((error) => {
+            console.error('[MQTT] Error starting video playback:', error);
+          });
+      } else {
+        console.warn('[MQTT] No video element found for play command');
+      }
+    } catch (error) {
+      console.error('[MQTT] Error handling play command:', error);
+    }
+  }
+
+  private handlePauseCommand(message: string): void {
+    try {
+      if (message.trim() !== 'pause') {
+        console.warn('[MQTT] Invalid pause command payload:', message);
+        return;
+      }
+
+      console.info('[MQTT] Pause command received');
+
+      // Get the video element and pause
+      const video = document.querySelector('video') as HTMLVideoElement;
+      if (video) {
+        video.pause();
+        console.info('[MQTT] Video playback paused');
+      } else {
+        console.warn('[MQTT] No video element found for pause command');
+      }
+    } catch (error) {
+      console.error('[MQTT] Error handling pause command:', error);
+    }
+  }
+
   private startPositionUpdates(): void {
     this.stopPositionUpdates(); // Clear any existing interval
 
@@ -389,6 +457,10 @@ class MqttManager {
       // Command topics
       seek_topic: this.topics.seek,
       playmedia_topic: this.topics.playmedia,
+      play_topic: this.topics.play,
+      play_payload: 'play',
+      pause_topic: this.topics.pause,
+      pause_payload: 'pause',
 
       // Device information
       device: {
