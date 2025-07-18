@@ -6,6 +6,7 @@ import {
   configWrite,
   configGetDesc
 } from './config.js';
+import { getMqttManager } from './mqtt';
 import './ui.css';
 
 // We handle key events ourselves.
@@ -64,6 +65,64 @@ function createConfigCheckbox(key) {
   elmLabel.appendChild(document.createTextNode('\u00A0' + configGetDesc(key)));
 
   return elmLabel;
+}
+
+function createMqttStatusSection() {
+  const statusContainer = document.createElement('div');
+  statusContainer.classList.add('ytaf-mqtt-status');
+  statusContainer.style.marginTop = '20px';
+  statusContainer.style.padding = '10px';
+  statusContainer.style.border = '1px solid #444';
+  statusContainer.style.borderRadius = '5px';
+
+  const statusHeading = document.createElement('h3');
+  statusHeading.textContent = 'MQTT Status';
+  statusHeading.style.margin = '0 0 10px 0';
+  statusHeading.style.fontSize = '14px';
+  statusContainer.appendChild(statusHeading);
+
+  const statusText = document.createElement('div');
+  statusText.classList.add('ytaf-mqtt-status-text');
+  statusText.style.fontSize = '12px';
+  statusText.style.lineHeight = '1.4';
+  statusContainer.appendChild(statusText);
+
+  // Function to update status display
+  function updateMqttStatus() {
+    try {
+      const mqttManager = getMqttManager();
+      const connectionState = mqttManager.getConnectionState();
+
+      let statusHtml = `<strong>Status:</strong> ${connectionState.status}<br>`;
+
+      if (connectionState.brokerUrl) {
+        statusHtml += `<strong>Broker:</strong> ${connectionState.brokerUrl}<br>`;
+      }
+
+      if (connectionState.lastConnected) {
+        statusHtml += `<strong>Last Connected:</strong> ${connectionState.lastConnected.toLocaleString()}<br>`;
+      }
+
+      if (connectionState.lastError) {
+        statusHtml += `<strong>Last Error:</strong> ${connectionState.lastError}`;
+      }
+
+      statusText.innerHTML = statusHtml;
+    } catch (error) {
+      statusText.innerHTML = `<strong>Status:</strong> Error getting MQTT status<br><strong>Error:</strong> ${error.message}`;
+    }
+  }
+
+  // Update status initially
+  updateMqttStatus();
+
+  // Update status every 5 seconds
+  const statusInterval = setInterval(updateMqttStatus, 5000);
+
+  // Store the interval so it can be cleaned up if needed
+  statusContainer._statusInterval = statusInterval;
+
+  return statusContainer;
 }
 
 function createOptionsPanel() {
@@ -147,6 +206,10 @@ function createOptionsPanel() {
   elmSponsorLink.innerHTML =
     '<small class="ytaf-ui-sponsor">Sponsor segments skipping - https://sponsor.ajay.app</small>';
   elmContainer.appendChild(elmSponsorLink);
+
+  // Add MQTT status section
+  const mqttStatusSection = createMqttStatusSection();
+  elmContainer.appendChild(mqttStatusSection);
 
   return elmContainer;
 }

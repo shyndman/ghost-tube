@@ -34,9 +34,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run manifest` - Generate manifest file
 - `npm run version` - Sync version across files
 
+## Project Overview
+
+This is a webOS TV application that enhances the YouTube TV experience with Home Assistant integration via MQTT. While the app includes ad-blocking and SponsorBlock features inherited from the original webosbrew project, the primary focus is on broadcasting video playback state to Home Assistant and receiving remote control commands.
+
 ## Architecture Overview
 
-This is a webOS application that provides an ad-free YouTube experience with additional features like SponsorBlock integration. The app works by injecting custom JavaScript into the YouTube TV interface.
+The app works by injecting custom JavaScript into the YouTube TV interface to monitor playback state and enhance functionality.
 
 ### Entry Points
 
@@ -45,6 +49,15 @@ This is a webOS application that provides an ad-free YouTube experience with add
 - `src/index.html` - Main HTML file loaded by webOS
 
 ### Core Systems
+
+#### MQTT Manager (`src/mqtt.ts`)
+
+- TypeScript MQTT client using MQTT.js v5.x with WebSocket transport
+- Automatic discovery configuration for Home Assistant
+- Connection management with exponential backoff retry
+- Visibility change detection for TV standby states
+- Position update management (5-second intervals during playback)
+- Command subscription for seek and playmedia operations
 
 #### Configuration System (`src/config.js`)
 
@@ -79,7 +92,8 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 - `thumbnail-quality.ts` - Thumbnail quality enhancement
 - `screensaver-fix.ts` - Prevents screensaver during playback
 - `watch.js` - Watch page enhancements
-- `hass.ts` - Home Assistant integration monitoring video player state
+- `hass.ts` - Video state monitoring and MQTT publishing coordination
+- `mqtt.ts` - MQTT client manager with Home Assistant discovery support
 
 ### Build System
 
@@ -200,39 +214,97 @@ The project uses extensive console logging for debugging:
 - **Remote Only**: All debugging done remotely via CLI tools
 - **Performance**: Modern hardware supports more extensive debugging features
 
-## MQTT Integration
+## MQTT Home Assistant Integration
 
-### MQTT.js Modern Version
+### Overview
 
-- **Current Version**: MQTT.js v4.3.8 (modern version with Node.js v8.12.0+ support)
-- **Upgrade Complete**: Upgraded from legacy v1.14.1 to modern v4.x
-- **Status**: Installed but not yet implemented in application
-- **Benefits**: Promise-based API, better TypeScript support, enhanced reconnection logic, improved error handling
+The application integrates with Home Assistant using MQTT and the [bkbilly/mqtt_media_player](https://github.com/bkbilly/mqtt_media_player) custom component. This allows Home Assistant to:
 
-### Future Implementation Notes
+- Monitor YouTube playback state in real-time
+- Display video metadata (title, creator, thumbnail)
+- Track playback position
+- Send remote control commands (seek, play specific videos)
 
-When implementing MQTT functionality:
+### MQTT Configuration
 
-1. **Import**: `const mqtt = require('mqtt');` or `import mqtt from 'mqtt';`
-2. **Connection**: `const client = mqtt.connect('mqtt://broker-url');`
-3. **Modern API**: Supports both callback and Promise-based patterns
-4. **Features Available (v4.x)**:
+MQTT broker settings are currently hardcoded in `src/mqtt.ts`:
 
-   - Full MQTT 3.1.1 support
-   - SSL/TLS connections
-   - WebSocket support
-   - QoS levels 0, 1, 2
-   - Last Will and Testament (LWT)
-   - Username/password authentication
-   - Retained messages
-   - Clean session support
-   - Automatic reconnection with exponential backoff
-   - Better TypeScript definitions
-   - Stream-based architecture
-   - Improved error handling and debugging
+```typescript
+const MQTT_CONFIG = {
+  broker: '192.168.86.29', // Your MQTT broker IP
+  port: 8083, // WebSocket port
+  username: undefined, // Set if needed
+  password: undefined, // Set if needed
+  clientId: 'youtube-webos-' + Math.random().toString(16).substring(2, 10),
+  topicPrefix: 'homeassistant/media_player/living_room_tv_youtube'
+};
+```
 
-5. **Integration Pattern**: Follow existing module patterns in `src/hass.ts`
-6. **Configuration**: Add MQTT settings to `src/config.js` configuration system
+### Published Topics
+
+**Status Topics** (published by the app):
+
+- `{prefix}/available` - "ON"/"OFF" availability status with Last Will and Testament
+- `{prefix}/state` - "playing"/"paused"/"stopped"/"idle" playback state
+- `{prefix}/position` - Current playback position in seconds (updated every 5s)
+- `{prefix}/title` - Video title
+- `{prefix}/artist` - Video creator/channel name
+- `{prefix}/albumart` - Video thumbnail URL
+- `{prefix}/duration` - Video duration in seconds
+- `{prefix}/mediatype` - Always "video"
+
+**Command Topics** (subscribed by the app):
+
+- `{prefix}/seek` - Seek to position in seconds (e.g., "120" for 2:00)
+- `{prefix}/playmedia` - Play video by ID (e.g., "dQw4w9WgXcQ" or JSON `{"media_content_id": "dQw4w9WgXcQ"}`)
+
+### Architecture
+
+1. **MqttManager** (`src/mqtt.ts`)
+
+   - Manages MQTT connection with WebSocket transport
+   - Handles automatic reconnection with exponential backoff
+   - Publishes Home Assistant discovery configuration
+   - Manages visibility changes for TV standby detection
+
+2. **AppHandler/VideoHandler** (`src/hass.ts`)
+
+   - Monitors YouTube page navigation and video state
+   - Extracts video metadata from YouTube TV interface
+   - Publishes state changes to MQTT via MqttManager
+
+3. **Dependency Injection**
+   - MqttManager instance created by AppHandler
+   - Passed to VideoHandler via constructor
+   - Clean separation of concerns
+
+### TV Standby Behavior
+
+When the TV goes to standby mode ("soft" off):
+
+- `webkitvisibilitychange` event is detected
+- Availability is set to "OFF"
+- Media state is cleared (published as idle with null metadata)
+- Position updates are paused to save bandwidth
+- MQTT connection remains active for quick resume
+
+When TV becomes active again:
+
+- Availability is set to "ON"
+- Normal state publishing resumes
+
+### Home Assistant Setup
+
+1. Install the [bkbilly/mqtt_media_player](https://github.com/bkbilly/mqtt_media_player) custom component
+2. The webOS app will automatically publish discovery configuration
+3. Media player entity will appear as `media_player.living_room_tv_youtube`
+
+### Debugging MQTT
+
+- Enable debug logging in Home Assistant for `custom_components.mqtt_media_player`
+- Monitor MQTT topics using tools like MQTT Explorer
+- Check browser console for [MQTT] prefixed messages
+- GREEN button menu shows connection status and last error
 
 ## Browser Automation with MCP
 
