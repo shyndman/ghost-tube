@@ -1,8 +1,8 @@
 const CONFIG_KEY = 'ytaf-configuration';
 
 const configOptions = new Map([
-  ['enableAdBlock', { default: true, desc: 'Enable ad blocking' }],
-  ['upgradeThumbnails', { default: false, desc: 'Upgrade thumbnail quality' }],
+  ['enableAdBlock', { default: false, desc: 'Enable ad blocking' }],
+  ['upgradeThumbnails', { default: true, desc: 'Upgrade thumbnail quality' }],
   [
     'removeShorts',
     { default: false, desc: 'Remove Shorts from subscriptions' }
@@ -52,14 +52,14 @@ const configOptions = new Map([
   [
     'showWatch',
     {
-      default: false,
+      default: true,
       desc: 'Display time in UI'
     }
   ],
   [
     'forceHighResVideo',
     {
-      default: false,
+      default: true,
       desc: 'Force max resolution video playback'
     }
   ]
