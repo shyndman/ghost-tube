@@ -9,11 +9,17 @@ class HomeAssistantHandler {
   private lastReportedTime: number = 0;
 
   // Video metadata
-  private videoTitle: string | null = null;
-  private videoThumbnail: string | null = null;
-  private videoDuration: number | null = null;
-  private creatorName: string | null = null;
-  private publishDate: string | null = null;
+  private _videoTitle: string | null = null;
+  private _videoThumbnail: string | null = null;
+  private _videoDuration: number | null = null;
+  private _creatorName: string | null = null;
+  private _publishDate: string | null = null;
+
+  // Volume monitoring
+  private _currentVolume: number | null = null;
+  private _volumeMuted: boolean | null = null;
+  private _soundOutput: string | null = null;
+  private _volumeSubscription: any = null;
 
   // Event handlers bound to instance
   private boundHandlers = {
@@ -61,6 +67,9 @@ class HomeAssistantHandler {
 
     // Extract video metadata
     this.extractVideoMetadata();
+
+    // Initialize volume monitoring
+    this.initVolumeMonitoring();
   }
 
   private attachToVideo() {
@@ -179,10 +188,10 @@ class HomeAssistantHandler {
 
     // Capture video duration
     if (this.video?.duration) {
-      this.videoDuration = this.video.duration;
+      this._videoDuration = this.video.duration;
       console.info(
         '[HASS] Video duration captured:',
-        this.videoDuration,
+        this._videoDuration,
         'seconds'
       );
       this.logMetadataSummary();
@@ -234,7 +243,7 @@ class HomeAssistantHandler {
       null;
 
     if (title) {
-      this.videoTitle = title;
+      this._videoTitle = title;
       console.info('[HASS] Video title extracted:', title);
       this.logMetadataSummary();
     } else {
@@ -252,8 +261,8 @@ class HomeAssistantHandler {
 
     // Construct thumbnail URL from video ID (most reliable method)
     if (this._videoId) {
-      this.videoThumbnail = `https://i.ytimg.com/vi/${this._videoId}/hqdefault.jpg`;
-      console.info('[HASS] Video thumbnail URL:', this.videoThumbnail);
+      this._videoThumbnail = `https://i.ytimg.com/vi/${this._videoId}/hqdefault.jpg`;
+      console.info('[HASS] Video thumbnail URL:', this._videoThumbnail);
     } else {
       console.info('[HASS] No video ID available for thumbnail construction');
     }
@@ -287,7 +296,7 @@ class HomeAssistantHandler {
     const creatorName = creatorElement.textContent?.trim() || null;
 
     if (creatorName) {
-      this.creatorName = creatorName;
+      this._creatorName = creatorName;
       console.info('[HASS] Creator name extracted:', creatorName);
       this.logMetadataSummary();
     } else {
@@ -329,7 +338,7 @@ class HomeAssistantHandler {
     const ariaLabel = dateElement.getAttribute('aria-label');
 
     if (publishDate) {
-      this.publishDate = publishDate;
+      this._publishDate = publishDate;
       console.info('[HASS] Publish date extracted:', publishDate);
       if (ariaLabel) {
         console.info('[HASS] Full publish date (aria-label):', ariaLabel);
@@ -345,22 +354,97 @@ class HomeAssistantHandler {
     }
   }
 
+  private initVolumeMonitoring() {
+    console.info('[HASS] Initializing volume monitoring...');
+
+    // Check if webOS service is available
+    if (typeof webOS === 'undefined' || !webOS.service) {
+      console.info(
+        '[HASS] webOS service not available, skipping volume monitoring'
+      );
+      return;
+    }
+
+    try {
+      // Subscribe to volume changes
+      this._volumeSubscription = webOS.service.request(
+        'luna://com.webos.service.audio',
+        {
+          method: 'master/getVolume',
+          parameters: { subscribe: true },
+          onSuccess: this.onVolumeChange.bind(this),
+          onFailure: (error: any) => {
+            console.error(
+              '[HASS] Volume monitoring subscription failed:',
+              error
+            );
+            // Retry subscription after 5 seconds
+            if (!this.destroyed) {
+              setTimeout(() => this.initVolumeMonitoring(), 5000);
+            }
+          }
+        }
+      );
+      console.info('[HASS] Volume monitoring subscription initiated');
+    } catch (error) {
+      console.error('[HASS] Failed to initiate volume monitoring:', error);
+    }
+  }
+
+  private onVolumeChange(response: any) {
+    console.info('[HASS] Volume change event:', {
+      volume: response.volume,
+      muted: response.muted,
+      soundOutput: response.soundOutput,
+      scenario: response.scenario,
+      subscribed: response.subscribed,
+      timestamp: Date.now()
+    });
+
+    // Update volume state
+    const volumeChanged = this._currentVolume !== response.volume;
+    const muteChanged = this._volumeMuted !== response.muted;
+    const outputChanged = this._soundOutput !== response.soundOutput;
+
+    this._currentVolume = response.volume || null;
+    this._volumeMuted = response.muted || null;
+    this._soundOutput = response.soundOutput || null;
+
+    // Log specific changes
+    if (volumeChanged) {
+      console.info(`[HASS] Volume level changed: ${this._currentVolume}`);
+    }
+    if (muteChanged) {
+      console.info(
+        `[HASS] Mute status changed: ${this._volumeMuted ? 'MUTED' : 'UNMUTED'}`
+      );
+    }
+    if (outputChanged) {
+      console.info(`[HASS] Sound output changed: ${this._soundOutput}`);
+    }
+
+    this.logMetadataSummary();
+  }
+
   private logMetadataSummary() {
     // Log complete metadata when we have all pieces
     if (
-      this.videoTitle &&
-      this.videoThumbnail &&
-      this.videoDuration &&
-      this.creatorName &&
-      this.publishDate
+      this._videoTitle &&
+      this._videoThumbnail &&
+      this._videoDuration &&
+      this._creatorName &&
+      this._publishDate
     ) {
       console.info('[HASS] Complete video metadata collected:', {
         videoId: this._videoId,
-        title: this.videoTitle,
-        thumbnail: this.videoThumbnail,
-        duration: this.videoDuration,
-        creatorName: this.creatorName,
-        publishDate: this.publishDate,
+        title: this._videoTitle,
+        thumbnail: this._videoThumbnail,
+        duration: this._videoDuration,
+        creatorName: this._creatorName,
+        publishDate: this._publishDate,
+        currentVolume: this._currentVolume,
+        volumeMuted: this._volumeMuted,
+        soundOutput: this._soundOutput,
         timestamp: Date.now()
       });
     }
@@ -370,12 +454,25 @@ class HomeAssistantHandler {
     console.info('[HASS] Destroying HomeAssistantHandler...');
     this.destroyed = true;
 
+    // Cancel volume monitoring subscription
+    if (this._volumeSubscription) {
+      try {
+        if (typeof this._volumeSubscription.cancel === 'function') {
+          this._volumeSubscription.cancel();
+          console.info('[HASS] Volume monitoring subscription cancelled');
+        }
+      } catch (error) {
+        console.error('[HASS] Failed to cancel volume subscription:', error);
+      }
+    }
+
     // Remove player listeners
     if (this.player) {
-      // Note: Player API doesn't support removeEventListener
-      console.info(
-        '[HASS] Player listeners cannot be removed (API limitation)'
+      this.player.removeEventListener(
+        'onStateChange',
+        this.boundHandlers.onPlayerStateChange
       );
+      console.info('[HASS] Player listeners removed');
     }
 
     // Remove video listeners
@@ -407,11 +504,15 @@ class HomeAssistantHandler {
     }
 
     // Reset metadata
-    this.videoTitle = null;
-    this.videoThumbnail = null;
-    this.videoDuration = null;
-    this.creatorName = null;
-    this.publishDate = null;
+    this._videoTitle = null;
+    this._videoThumbnail = null;
+    this._videoDuration = null;
+    this._creatorName = null;
+    this._publishDate = null;
+    this._currentVolume = null;
+    this._volumeMuted = null;
+    this._soundOutput = null;
+    this._volumeSubscription = null;
 
     this.video = null;
     this.player = null;
@@ -424,6 +525,22 @@ declare global {
   interface Window {
     homeAssistant: HomeAssistantHandler | null;
   }
+
+  var webOS:
+    | {
+        service: {
+          request: (
+            service: string,
+            options: {
+              method: string;
+              parameters?: any;
+              onSuccess?: (response: any) => void;
+              onFailure?: (error: any) => void;
+            }
+          ) => any;
+        };
+      }
+    | undefined;
 }
 
 window.homeAssistant = null;

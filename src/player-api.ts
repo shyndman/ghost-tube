@@ -27,7 +27,12 @@ export interface YTPlayer extends HTMLElement {
     listener: (this: YTPlayer, ev: YTPlayerEventMap[K]) => any,
     options?: boolean | AddEventListenerOptions
   ): void;
-  // Player API does not support `removeEventListener`
+
+  removeEventListener<K extends keyof YTPlayerEventMap>(
+    type: K,
+    listener: (this: YTPlayer, ev: YTPlayerEventMap[K]) => any,
+    options?: boolean | EventListenerOptions
+  ): void;
 
   getPlaybackQualityLabel(): string;
 
