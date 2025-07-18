@@ -1,0 +1,13 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "headless": false
+    }
+  },
+  "server": {
+    "port": 5573
+  },
+  "capabilities": ["tabs", "vision"],
+  "imageResponses": "allow"
+}

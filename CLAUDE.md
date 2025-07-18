@@ -23,6 +23,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run launch` - Launch the app on webOS device
 - `npm run launch -- -p '{"contentTarget":"v=VIDEO_ID"}'` - Launch with specific video
 - `npm run inspect` - Open developer tools for the app
+- `npm run build-deploy-inspect` - Complete workflow: build, package, deploy, launch, and start inspector
+
+### Browser Automation (MCP)
+
+- `npm run mcp:playwright` - Start Playwright MCP server for browser automation
 
 ### Utility Commands
 
@@ -228,3 +233,43 @@ When implementing MQTT functionality:
 
 5. **Integration Pattern**: Follow existing module patterns in `src/hass.ts`
 6. **Configuration**: Add MQTT settings to `src/config.js` configuration system
+
+## Browser Automation with MCP
+
+### Playwright MCP Integration
+
+- **Package**: `@playwright/mcp` installed as development dependency
+- **Configuration**: `playwright-mcp.config.json` configures Firefox browser with localhost-only access
+- **Security**: Network access restricted to localhost origins only for safety
+
+### MCP Workflow Commands
+
+- **MCP Server**: Configure `@playwright/mcp` in Claude Code settings with config file `playwright-mcp.config.json`
+- **Development Workflow**: `npm run build-deploy-inspect` - Complete sequence:
+  1. Build app with webpack (`npm run build`)
+  2. Package app as .ipk (`npm run package`)
+  3. Deploy app to webOS device (`npm run deploy`)
+  4. Launch app on device (`npm run launch`)
+  5. Start webOS inspector (`npm run inspect`) and capture localhost URL
+
+### Integration with Claude Code
+
+The MCP integration enables Claude Code to:
+
+- **Automate webOS debugging**: Control browser to navigate inspector interface
+- **Extract live metadata**: Analyze running YouTube app state and player data
+- **Debug features**: Test adblock, sponsorblock, and other modules in real-time
+- **Network analysis**: Monitor API calls and data flow on actual webOS hardware
+- **DOM inspection**: Examine YouTube TV interface structure as it runs
+
+### Configuration Files
+
+- **`playwright-mcp.config.json`**: MCP server configuration with Firefox and localhost restrictions
+- **`tools/build-deploy-inspect.js`**: Development workflow script for complete build and deployment
+
+### Usage Pattern
+
+1. Configure Playwright MCP server in Claude Code settings
+2. Run `npm run build-deploy-inspect` to deploy app and start inspector
+3. Wait for "Inspector URL captured" message with localhost URL
+4. Ask Claude Code to use MCP browser tools to navigate to inspector URL and automate debugging tasks
