@@ -38,6 +38,8 @@ interface PlayMediaCommand {
   media_content_type?: string;
 }
 
+type MediaCommandCallback = (command: string, payload: string) => void;
+
 class MqttManager {
   private client: mqtt.MqttClient | null = null;
   private connectionState: MqttConnectionState = {
@@ -75,6 +77,9 @@ class MqttManager {
   private onIdleStateCallback: (() => void) | null = null;
   private boundVisibilityChangeHandler = this.handleVisibilityChange.bind(this);
 
+  // Media command callback
+  private mediaCommandCallback: MediaCommandCallback | null = null;
+
   constructor() {
     console.info('[MQTT] Creating MqttManager...');
     this.initVisibilityChangeListener();
@@ -82,6 +87,10 @@ class MqttManager {
 
   setOnIdleStateCallback(callback: () => void) {
     this.onIdleStateCallback = callback;
+  }
+
+  setMediaCommandCallback(callback: MediaCommandCallback) {
+    this.mediaCommandCallback = callback;
   }
 
   private initVisibilityChangeListener() {
@@ -290,146 +299,32 @@ class MqttManager {
       const message = payload.toString();
       console.info(`[MQTT] Received message on ${topic}:`, message, packet);
 
-      switch (topic) {
-        case this.topics.seek:
-          this.handleSeekCommand(message);
-          break;
-        case this.topics.playmedia:
-          this.handlePlayMediaCommand(message);
-          break;
-        case this.topics.play:
-          this.handlePlayCommand(message);
-          break;
-        case this.topics.pause:
-          this.handlePauseCommand(message);
-          break;
-        case this.topics.stop:
-          this.handleStopCommand(message);
-          break;
-        default:
+      // Route command to callback if available
+      if (this.mediaCommandCallback) {
+        let command: string | null = null;
+
+        if (topic === this.topics.seek) {
+          command = 'seek';
+        } else if (topic === this.topics.playmedia) {
+          command = 'playmedia';
+        } else if (topic === this.topics.play) {
+          command = 'play';
+        } else if (topic === this.topics.pause) {
+          command = 'pause';
+        } else if (topic === this.topics.stop) {
+          command = 'stop';
+        }
+
+        if (command) {
+          this.mediaCommandCallback(command, message);
+        } else {
           console.warn(`[MQTT] Unknown topic: ${topic}`);
+        }
+      } else {
+        console.warn('[MQTT] No media command callback registered');
       }
     } catch (error) {
       console.error('[MQTT] Error handling message:', error);
-    }
-  }
-
-  private handleSeekCommand(message: string): void {
-    try {
-      const position = parseInt(message, 10);
-      if (isNaN(position)) {
-        console.error('[MQTT] Invalid seek position:', message);
-        return;
-      }
-
-      console.info(`[MQTT] Seeking to position: ${position} seconds`);
-
-      // Get the video element and seek
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (video) {
-        video.currentTime = position;
-        console.info(`[MQTT] Seeked to ${position} seconds`);
-      } else {
-        console.warn('[MQTT] No video element found for seek command');
-      }
-    } catch (error) {
-      console.error('[MQTT] Error handling seek command:', error);
-    }
-  }
-
-  private handlePlayMediaCommand(message: string): void {
-    try {
-      let videoId: string;
-
-      try {
-        // Try to parse as JSON first
-        const command: PlayMediaCommand = JSON.parse(message);
-        videoId = command.media_content_id;
-      } catch {
-        // If not JSON, treat as plain video ID
-        videoId = message.trim();
-      }
-
-      if (!videoId) {
-        console.error('[MQTT] No video ID provided in playmedia command');
-        return;
-      }
-
-      console.info(`[MQTT] Playing video: ${videoId}`);
-
-      // Navigate to the video
-      const newUrl = `#/watch?v=${videoId}`;
-      window.location.hash = newUrl;
-      console.info(`[MQTT] Navigated to ${newUrl}`);
-    } catch (error) {
-      console.error('[MQTT] Error handling playmedia command:', error);
-    }
-  }
-
-  private handlePlayCommand(message: string): void {
-    try {
-      if (message.trim() !== 'play') {
-        console.warn('[MQTT] Invalid play command payload:', message);
-        return;
-      }
-
-      console.info('[MQTT] Play command received');
-
-      // Get the video element and play
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (video) {
-        video
-          .play()
-          .then(() => {
-            console.info('[MQTT] Video playback started');
-          })
-          .catch((error) => {
-            console.error('[MQTT] Error starting video playback:', error);
-          });
-      } else {
-        console.warn('[MQTT] No video element found for play command');
-      }
-    } catch (error) {
-      console.error('[MQTT] Error handling play command:', error);
-    }
-  }
-
-  private handlePauseCommand(message: string): void {
-    try {
-      if (message.trim() !== 'pause') {
-        console.warn('[MQTT] Invalid pause command payload:', message);
-        return;
-      }
-
-      console.info('[MQTT] Pause command received');
-
-      // Get the video element and pause
-      const video = document.querySelector('video') as HTMLVideoElement;
-      if (video) {
-        video.pause();
-        console.info('[MQTT] Video playback paused');
-      } else {
-        console.warn('[MQTT] No video element found for pause command');
-      }
-    } catch (error) {
-      console.error('[MQTT] Error handling pause command:', error);
-    }
-  }
-
-  private handleStopCommand(message: string): void {
-    try {
-      if (message.trim() !== 'stop') {
-        console.warn('[MQTT] Invalid stop command payload:', message);
-        return;
-      }
-
-      console.info('[MQTT] Stop command received');
-
-      // Navigate to YouTube home page to stop current video
-      window.location.hash = '#/';
-      console.info('[MQTT] Navigated to YouTube home page');
-    } catch (error) {
-      console.error('[MQTT] Error handling stop command:', error);
     }
   }
 
