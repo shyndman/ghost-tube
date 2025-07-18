@@ -43,16 +43,16 @@ const configOptions = new Map([
     }
   ],
   [
-    'hideLogo',
+    'customLogo',
     {
-      default: false,
-      desc: 'Hide YouTube logo'
+      default: true,
+      desc: 'Replace with custom logo'
     }
   ],
   [
     'showWatch',
     {
-      default: true,
+      default: false,
       desc: 'Display time in UI'
     }
   ],

@@ -184,7 +184,7 @@ function createOptionsPanel() {
 
   elmContainer.appendChild(createConfigCheckbox('enableAdBlock'));
   elmContainer.appendChild(createConfigCheckbox('upgradeThumbnails'));
-  elmContainer.appendChild(createConfigCheckbox('hideLogo'));
+  elmContainer.appendChild(createConfigCheckbox('customLogo'));
   elmContainer.appendChild(createConfigCheckbox('showWatch'));
   elmContainer.appendChild(createConfigCheckbox('removeShorts'));
   elmContainer.appendChild(createConfigCheckbox('forceHighResVideo'));
@@ -297,22 +297,67 @@ export function showNotification(text, time = 3000) {
 }
 
 /**
- * Initialize ability to hide YouTube logo in top right corner.
+ * Initialize ability to replace YouTube logo with custom logo.
  */
-function initHideLogo() {
+function initCustomLogo() {
   const style = document.createElement('style');
   document.head.appendChild(style);
 
-  /** @type {(hide: boolean) => void} */
-  const setHidden = (hide) => {
-    const visibility = hide ? 'hidden' : 'visible';
-    style.textContent = `ytlr-redux-connect-ytlr-logo-entity { visibility: ${visibility}; }`;
+  const customLogoUrl =
+    'https://raw.githubusercontent.com/shyndman/ghost-tube/main/assets/customLogo.2x.png';
+  let customLogoElement = null;
+
+  /** @type {(replace: boolean) => void} */
+  const setCustomLogo = (replace) => {
+    // Always hide the original logo when custom logo is enabled
+    const visibility = replace ? 'hidden' : 'visible';
+    style.textContent = `ytlr-logo-entity { visibility: ${visibility}; }`;
+
+    if (replace) {
+      // Find the original logo to copy its positioning
+      const originalLogo = document.querySelector('ytlr-logo-entity');
+
+      if (originalLogo && !customLogoElement) {
+        console.info('[CUSTOM-LOGO] Creating custom logo element');
+
+        customLogoElement = document.createElement('img');
+        customLogoElement.src = customLogoUrl;
+        customLogoElement.className = 'ytaf-custom-logo ytLrLogoEntityAppLevel';
+
+        // Copy the positioning from the original logo
+        const originalStyles = originalLogo.style;
+        customLogoElement.style.cssText = `
+          position: absolute;
+          left: ${originalStyles.left};
+          width: ${originalStyles.width};
+          top: 2rem;
+          z-index: 1000;
+          pointer-events: none;
+        `;
+
+        // Append to the same parent as the original logo
+        originalLogo.parentElement.appendChild(customLogoElement);
+      } else if (!originalLogo) {
+        console.warn(
+          '[CUSTOM-LOGO] Original logo element not found, retrying in 500ms...'
+        );
+        setTimeout(() => setCustomLogo(replace), 500);
+        return;
+      }
+
+      if (customLogoElement) {
+        customLogoElement.style.display = 'block';
+      }
+    } else if (customLogoElement) {
+      // Hide custom logo
+      customLogoElement.style.display = 'none';
+    }
   };
 
-  setHidden(configRead('hideLogo'));
+  setCustomLogo(configRead('customLogo'));
 
-  configAddChangeListener('hideLogo', (evt) => {
-    setHidden(evt.detail.newValue);
+  configAddChangeListener('customLogo', (evt) => {
+    setCustomLogo(evt.detail.newValue);
   });
 }
 
@@ -346,7 +391,7 @@ function applyUIFixes() {
 }
 
 applyUIFixes();
-initHideLogo();
+initCustomLogo();
 
 setTimeout(() => {
   showNotification('Press [GREEN] to open YTAF configuration screen');
