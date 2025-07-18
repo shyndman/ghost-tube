@@ -24,7 +24,7 @@ Ghost-Tube integrates seamlessly with Home Assistant via MQTT:
 - **TV standby detection**: Automatically clears media state when TV is off
 - **Auto-discovery**: Automatically configures Home Assistant media player entity
 
-Requires the [bkbilly/mqtt_media_player](https://github.com/bkbilly/mqtt_media_player) custom component.
+Requires the [shyndman/mqtt_media_player](https://github.com/shyndman/mqtt_media_player) custom component.
 
 ## Pre-requisites
 
