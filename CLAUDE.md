@@ -92,8 +92,10 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 - `thumbnail-quality.ts` - Thumbnail quality enhancement
 - `screensaver-fix.ts` - Prevents screensaver during playback
 - `watch.js` - Watch page enhancements
-- `hass.ts` - Video state monitoring and MQTT publishing coordination
-- `mqtt.ts` - MQTT client manager with Home Assistant discovery support
+- `hass.ts` - Main initialization and global instance management
+- `app-handler.ts` - Application state management and component coordination
+- `media-controller.ts` - Video monitoring and media control command handling (formerly VideoHandler)
+- `mqtt.ts` - MQTT client manager with Home Assistant discovery support and callback-based command routing
 
 ### Build System
 
@@ -101,6 +103,7 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 - Babel transpilation for modern JavaScript features (targeting Node.js v8.12.0 on webOS TV 6.0+)
 - CSS processing with PostCSS and autoprefixer
 - Source maps for development builds
+- Asset module support for inlining images as base64 data URIs (custom logo is now bundled)
 
 ### webOS Integration
 
@@ -218,7 +221,7 @@ The project uses extensive console logging for debugging:
 
 ### Overview
 
-The application integrates with Home Assistant using MQTT and the [bkbilly/mqtt_media_player](https://github.com/bkbilly/mqtt_media_player) custom component. This allows Home Assistant to:
+The application integrates with Home Assistant using MQTT and the [shyndman/mqtt_media_player](https://github.com/shyndman/mqtt_media_player) custom component (forked from bkbilly). This allows Home Assistant to:
 
 - Monitor YouTube playback state in real-time
 - Display video metadata (title, creator, thumbnail)
@@ -257,6 +260,9 @@ const MQTT_CONFIG = {
 
 - `{prefix}/seek` - Seek to position in seconds (e.g., "120" for 2:00)
 - `{prefix}/playmedia` - Play video by ID (e.g., "dQw4w9WgXcQ" or JSON `{"media_content_id": "dQw4w9WgXcQ"}`)
+- `{prefix}/play` - Resume playback (payload: "play")
+- `{prefix}/pause` - Pause playback (payload: "pause")
+- `{prefix}/stop` - Stop playback and return to YouTube home (payload: "stop")
 
 ### Architecture
 
@@ -267,16 +273,24 @@ const MQTT_CONFIG = {
    - Publishes Home Assistant discovery configuration
    - Manages visibility changes for TV standby detection
 
-2. **AppHandler/VideoHandler** (`src/hass.ts`)
+2. **AppHandler** (`src/app-handler.ts`)
 
-   - Monitors YouTube page navigation and video state
+   - Manages application state and page navigation
+   - Coordinates between MQTT and MediaController
+   - Handles media command routing
+
+3. **MediaController** (`src/media-controller.ts`)
+
+   - Monitors video playback state and events
    - Extracts video metadata from YouTube TV interface
-   - Publishes state changes to MQTT via MqttManager
+   - Handles all media control commands (play, pause, stop, seek, playmedia)
+   - Reports state changes back to AppHandler
 
-3. **Dependency Injection**
-   - MqttManager instance created by AppHandler
-   - Passed to VideoHandler via constructor
-   - Clean separation of concerns
+4. **Architecture Design**
+   - Clean separation of concerns: MQTT only handles communication
+   - Callback-based command routing from MQTT to AppHandler to MediaController
+   - MqttManager instance created by AppHandler, passed to MediaController
+   - Each component has a single, well-defined responsibility
 
 ### TV Standby Behavior
 
@@ -295,7 +309,7 @@ When TV becomes active again:
 
 ### Home Assistant Setup
 
-1. Install the [bkbilly/mqtt_media_player](https://github.com/bkbilly/mqtt_media_player) custom component
+1. Install the [shyndman/mqtt_media_player](https://github.com/shyndman/mqtt_media_player) custom component
 2. The webOS app will automatically publish discovery configuration
 3. Media player entity will appear as `media_player.living_room_tv_youtube`
 

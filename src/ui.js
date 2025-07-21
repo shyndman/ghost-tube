@@ -8,6 +8,7 @@ import {
 } from './config.js';
 import { getMqttManager } from './mqtt';
 import './ui.css';
+import customLogoUrl from '../assets/customLogo.2x.png';
 
 // We handle key events ourselves.
 window.__spatialNavigation__.keyMode = 'NONE';
@@ -303,8 +304,6 @@ function initCustomLogo() {
   const style = document.createElement('style');
   document.head.appendChild(style);
 
-  const customLogoUrl =
-    'https://raw.githubusercontent.com/shyndman/ghost-tube/main/assets/customLogo.2x.png';
   let customLogoElement = null;
 
   /** @type {(replace: boolean) => void} */
@@ -318,8 +317,6 @@ function initCustomLogo() {
       const originalLogo = document.querySelector('ytlr-logo-entity');
 
       if (originalLogo && !customLogoElement) {
-        console.info('[CUSTOM-LOGO] Creating custom logo element');
-
         customLogoElement = document.createElement('img');
         customLogoElement.src = customLogoUrl;
         customLogoElement.className = 'ytaf-custom-logo ytLrLogoEntityAppLevel';
@@ -337,12 +334,6 @@ function initCustomLogo() {
 
         // Append to the same parent as the original logo
         originalLogo.parentElement.appendChild(customLogoElement);
-      } else if (!originalLogo) {
-        console.warn(
-          '[CUSTOM-LOGO] Original logo element not found, retrying in 500ms...'
-        );
-        setTimeout(() => setCustomLogo(replace), 500);
-        return;
       }
 
       if (customLogoElement) {

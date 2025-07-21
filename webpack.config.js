@@ -7,7 +7,7 @@ const makeConfig = (_env, argv) => [
      * NOTE: Using inline-source-map for development builds for best webOS compatibility.
      */
     devtool: argv.mode === 'development' ? 'inline-source-map' : 'source-map',
-    
+
     target: ['web', 'es2017'],
 
     entry: {
@@ -53,6 +53,10 @@ const makeConfig = (_env, argv) => [
             },
             'postcss-loader'
           ]
+        },
+        {
+          test: /\.(png|jpg|gif|svg)$/i,
+          type: 'asset/inline'
         }
       ]
     },
