@@ -180,7 +180,7 @@ function createOptionsPanel() {
   );
 
   const elmHeading = document.createElement('h1');
-  elmHeading.textContent = 'WebOS YouTube Extended';
+  elmHeading.textContent = 'GhostTube';
   elmContainer.appendChild(elmHeading);
 
   elmContainer.appendChild(createConfigCheckbox('upgradeThumbnails'));
