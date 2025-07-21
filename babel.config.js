@@ -24,6 +24,7 @@ function makeConfig(api) {
         '@babel/preset-env',
         {
           bugfixes: true,
+          useBuiltIns: false,
           targets: {
             node: '8.12.0',
             chrome: '79'

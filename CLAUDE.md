@@ -36,7 +36,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a webOS TV application that enhances the YouTube TV experience with Home Assistant integration via MQTT. While the app includes ad-blocking and SponsorBlock features inherited from the original webosbrew project, the primary focus is on broadcasting video playback state to Home Assistant and receiving remote control commands.
+This is a webOS TV application that enhances the YouTube TV experience with Home Assistant integration via MQTT. The app includes SponsorBlock for skipping video segments and focuses on broadcasting video playback state to Home Assistant and receiving remote control commands.
 
 ## Architecture Overview
 
@@ -84,7 +84,6 @@ The app works by injecting custom JavaScript into the YouTube TV interface to mo
 
 Each feature is implemented as a separate module imported by `userScript.js`:
 
-- `adblock.js` - Advertisement blocking functionality
 - `sponsorblock.js` - SponsorBlock integration for skipping segments
 - `shorts.js` - YouTube Shorts removal from feeds
 - `ui.js` - Custom UI elements and configuration screen
@@ -100,10 +99,11 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 ### Build System
 
 - Webpack-based build with separate entry points for main app and user script
-- Babel transpilation for modern JavaScript features (targeting Node.js v8.12.0 on webOS TV 6.0+)
+- Babel transpilation optimized for Chrome 79+ (targeting Node.js v8.12.0 on webOS TV 6.0+)
 - CSS processing with PostCSS and autoprefixer
 - Source maps for development builds
 - Asset module support for inlining images as base64 data URIs (custom logo is now bundled)
+- Minimal polyfills: only spatial navigation (native browser features are used for fetch, DOMRect, etc.)
 
 ### webOS Integration
 
@@ -165,12 +165,12 @@ For video player interactions:
 - **No External Tracking**: No communication with ad networks or analytics services
 - **YouTube Only**: All other network requests are to YouTube's own APIs
 
-### Ad Blocking Implementation
+### SponsorBlock Implementation
 
-- **Client-Side Only**: Uses modified uBlock Origin rules applied locally
-- **No External Filters**: Ad blocking rules are embedded in the application
-- **YouTube-Specific**: Only filters YouTube's ad placement data structures
-- **Transparent**: All blocking logic is visible in `src/adblock.js`
+- **Privacy-Respecting**: Only sends SHA256 hash of video ID to SponsorBlock API
+- **Configurable**: Individual segment types can be enabled/disabled
+- **Optional**: Can be completely disabled in settings
+- **Transparent**: All logic is visible in `src/sponsorblock.js`
 
 ### User Control
 

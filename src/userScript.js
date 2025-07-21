@@ -1,6 +1,3 @@
-import 'whatwg-fetch';
-import './domrect-polyfill';
-
 import { handleLaunch } from './utils';
 
 document.addEventListener(
