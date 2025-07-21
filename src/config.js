@@ -42,13 +42,6 @@ const configOptions = new Map([
     }
   ],
   [
-    'customLogo',
-    {
-      default: true,
-      desc: 'Replace with custom logo'
-    }
-  ],
-  [
     'showWatch',
     {
       default: false,

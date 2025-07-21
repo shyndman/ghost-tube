@@ -11,7 +11,7 @@ document.addEventListener(
 
 import './shorts.js';
 import './sponsorblock.js';
-import './ui.js';
+import './ui.ts';
 import './font-fix.css';
 import './thumbnail-quality';
 import './screensaver-fix';
