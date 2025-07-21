@@ -1,6 +1,25 @@
 const CONTENT_INTENT_REGEX = /^.+(?=Content)/g;
 
-export function extractLaunchParams() {
+interface LaunchParams {
+  target?: string;
+  contentTarget?: string | ContentTargetObject;
+  storeCaller?: string;
+  subReason?: string;
+  voiceEngine?: string;
+}
+
+interface ContentTargetObject {
+  intent: string;
+  intentParam: string;
+}
+
+declare global {
+  interface Window {
+    launchParams?: string;
+  }
+}
+
+export function extractLaunchParams(): LaunchParams {
   if (window.launchParams) {
     return JSON.parse(window.launchParams);
   } else {
@@ -8,7 +27,7 @@ export function extractLaunchParams() {
   }
 }
 
-function getYTURL() {
+function getYTURL(): URL {
   const ytURL = new URL('https://www.youtube.com/tv#/');
   ytURL.searchParams.append('env_forceFullAnimation', '1');
   ytURL.searchParams.append('env_enableWebSpeech', '1');
@@ -22,13 +41,16 @@ function getYTURL() {
  * @param {URLSearchParams} b
  * @returns {URLSearchParams}
  */
-function concatSearchParams(a, b) {
+function concatSearchParams(
+  a: URLSearchParams,
+  b: URLSearchParams
+): URLSearchParams {
   return new URLSearchParams([...a.entries(), ...b.entries()]);
 }
 
-export function handleLaunch(params) {
+export function handleLaunch(params: LaunchParams): void {
   console.info('handleLaunch', params);
-  let ytURL = getYTURL();
+  let ytURL: URL | string = getYTURL();
 
   // We use our custom "target" param, since launches with "contentTarget"
   // parameter do not respect "handlesRelaunch" appinfo option. We still
@@ -52,25 +74,25 @@ export function handleLaunch(params) {
           contentTarget = contentTarget.substring(2);
 
         ytURL.search = concatSearchParams(
-          ytURL.searchParams,
+          (ytURL as URL).searchParams,
           new URLSearchParams(contentTarget)
-        );
+        ).toString();
       }
       break;
     }
     case 'object': {
       console.info('Voice launch');
 
-      const { intent, intentParam } = contentTarget;
+      const { intent, intentParam } = contentTarget as ContentTargetObject;
       // Ctrl+F tvhtml5LaunchUrlComponentChanged & REQUEST_ORIGIN_GOOGLE_ASSISTANT in base.js for info
-      const search = ytURL.searchParams;
+      const search = (ytURL as URL).searchParams;
       // contentTarget.intent's seen so far: PlayContent, SearchContent
       const voiceContentIntent = intent
         .match(CONTENT_INTENT_REGEX)?.[0]
         ?.toLowerCase();
 
-      search.set('inApp', true);
-      search.set('vs', 9); // Voice System is VOICE_SYSTEM_LG_THINKQ
+      search.set('inApp', 'true');
+      search.set('vs', '9'); // Voice System is VOICE_SYSTEM_LG_THINKQ
       voiceContentIntent && search.set('va', voiceContentIntent);
 
       // order is important
@@ -101,29 +123,29 @@ export function handleLaunch(params) {
  * @param {AbortSignal=} abortSignal Signal that can be used to stop waiting
  * @return {Promise<T>} Matched element
  */
-export async function waitForChildAdd(
-  parent,
-  predicate,
-  observeAttributes,
-  abortSignal
-) {
+export async function waitForChildAdd<T extends Node>(
+  parent: Element,
+  predicate: (node: Node) => node is T,
+  observeAttributes: boolean,
+  abortSignal?: AbortSignal
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const obs = new MutationObserver((mutations) => {
       for (const mut of mutations) {
         switch (mut.type) {
           case 'attributes': {
-            if (predicate(mut.target)) {
+            if (predicate(mut.target!)) {
               obs.disconnect();
-              resolve(mut.target);
+              resolve(mut.target! as T);
               return;
             }
             break;
           }
           case 'childList': {
-            for (const node of mut.addedNodes) {
+            for (const node of Array.from(mut.addedNodes)) {
               if (predicate(node)) {
                 obs.disconnect();
-                resolve(node);
+                resolve(node as T);
                 return;
               }
             }
@@ -146,4 +168,56 @@ export async function waitForChildAdd(
       childList: true
     });
   });
+}
+
+interface DOMSettleOptions {
+  delay?: number;
+  timeout?: number;
+}
+
+export function waitForDOMToSettle(
+  element: Element = document.body,
+  options: DOMSettleOptions = {}
+): Promise<void> {
+  const { delay = 300, timeout } = options;
+
+  const settlePromise = new Promise<void>((resolve) => {
+    let timeoutId: number;
+
+    const observer = new MutationObserver((mutations: MutationRecord[]) => {
+      // Clear any existing timeout
+      clearTimeout(timeoutId);
+
+      // Set a new timeout
+      timeoutId = window.setTimeout(() => {
+        // DOM hasn't changed for 'delay' ms, so it's settled
+        observer.disconnect();
+        resolve();
+      }, delay);
+    });
+
+    // Start observing the provided element
+    observer.observe(element, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeOldValue: false,
+      characterData: false
+    });
+  });
+
+  // If timeout is specified, race against it
+  if (timeout) {
+    return Promise.race([
+      settlePromise,
+      new Promise<void>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`DOM did not settle within ${timeout}ms`)),
+          timeout
+        )
+      )
+    ]);
+  }
+
+  return settlePromise;
 }
