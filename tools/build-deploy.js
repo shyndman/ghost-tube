@@ -1,6 +1,10 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
-console.log('🚀 Starting build, deploy, and inspect workflow...');
+// Parse command line arguments
+const args = process.argv.slice(2);
+const shouldInspect = args.includes('--inspect');
+
+console.log('🚀 Starting build and deploy workflow...');
 
 // Step 1: Build the app
 console.log('🔨 Building app...');
@@ -48,4 +52,63 @@ const launchResult = spawnSync('npm', ['run', 'launch'], {
 if (launchResult.status !== 0) {
   console.error('❌ Launch failed');
   process.exit(1);
+}
+
+// Step 5: Optionally run inspector and open Chrome
+if (shouldInspect) {
+  console.log('🔍 Starting webOS inspector...');
+
+  // Run inspector with spawn to capture output
+  const inspectProcess = spawn('npm', ['run', 'inspect'], {
+    shell: true
+  });
+
+  let urlOpened = false;
+
+  // Capture stdout to find localhost URL
+  inspectProcess.stdout.on('data', (data) => {
+    const output = data.toString();
+    process.stdout.write(output); // Pass through the output
+
+    // Look for localhost URL if we haven't opened Chrome yet
+    if (!urlOpened) {
+      const urlMatch = output.match(/http:\/\/localhost:\d+/);
+      if (urlMatch) {
+        const url = urlMatch[0];
+        console.log(`\n🌐 Opening Chrome with inspector URL: ${url}`);
+
+        // Launch Chrome with the URL
+        const chromeResult = spawnSync('google-chrome', ['--new-window', url], {
+          stdio: 'inherit',
+          shell: true
+        });
+
+        if (chromeResult.status !== 0) {
+          console.warn('⚠️  Could not launch Chrome automatically');
+        }
+
+        urlOpened = true;
+      }
+    }
+  });
+
+  // Pass through stderr
+  inspectProcess.stderr.on('data', (data) => {
+    process.stderr.write(data);
+  });
+
+  // Handle inspector process exit
+  inspectProcess.on('close', (code) => {
+    console.log(`\n🛑 Inspector exited with code ${code}`);
+    process.exit(code);
+  });
+
+  // Handle Ctrl+C gracefully
+  process.on('SIGINT', () => {
+    console.log('\n🛑 Terminating inspector...');
+    inspectProcess.kill('SIGINT');
+    process.exit(0);
+  });
+
+  console.log('ℹ️  Inspector is running. Press Ctrl+C to stop.');
 }
