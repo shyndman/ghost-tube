@@ -183,7 +183,6 @@ function createOptionsPanel() {
   elmHeading.textContent = 'WebOS YouTube Extended';
   elmContainer.appendChild(elmHeading);
 
-  elmContainer.appendChild(createConfigCheckbox('enableAdBlock'));
   elmContainer.appendChild(createConfigCheckbox('upgradeThumbnails'));
   elmContainer.appendChild(createConfigCheckbox('customLogo'));
   elmContainer.appendChild(createConfigCheckbox('showWatch'));

@@ -1,7 +1,6 @@
 const CONFIG_KEY = 'ytaf-configuration';
 
 const configOptions = new Map([
-  ['enableAdBlock', { default: false, desc: 'Enable ad blocking' }],
   ['upgradeThumbnails', { default: true, desc: 'Upgrade thumbnail quality' }],
   [
     'removeShorts',
