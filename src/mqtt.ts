@@ -354,8 +354,8 @@ class MqttManager {
 
   private publishDiscoveryConfig(): void {
     const config = {
-      name: 'Living Room TV YouTube',
-      unique_id: 'living_room_tv_youtube',
+      name: 'Living Room TV GhostTube',
+      unique_id: 'living_room_tv_ghosttube',
 
       // Availability
       availability_topic: this.topics.available,
