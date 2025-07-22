@@ -11,7 +11,6 @@ import './ui.css';
 import { requireElement } from './player-api';
 // @ts-ignore - Asset import handled by webpack
 import customLogoUrl from '../assets/customLogo.2x.png';
-import { waitForDOMToSettle } from './utils';
 
 // Type declarations
 interface SpatialNavigation {
@@ -329,35 +328,6 @@ export function showNotification(text: string, time: number = 3000): void {
   }, time);
 }
 
-/**
- * Initialize ability to replace YouTube logo with custom logo.
- */
-async function initCustomLogo(): Promise<void> {
-  const originalLogo = await requireElement('ytlr-logo-entity', HTMLElement);
-  await waitForDOMToSettle(originalLogo, { delay: 1000 });
-  // Find the original logo to copy its positioning
-  let customLogoElement: HTMLImageElement = document.createElement('img');
-  customLogoElement.src = customLogoUrl;
-  customLogoElement.className = 'ytaf-custom-logo ytLrLogoEntityAppLevel';
-
-  // Copy the positioning from the original logo
-  const originalStyles = originalLogo.style;
-  customLogoElement.style.cssText = `
-          position: absolute;
-          left: ${originalStyles.left};
-          width: ${originalStyles.width};
-          top: 2rem;
-          z-index: 1000;
-          pointer-events: none;
-          display: block;
-        `;
-
-  // Append to the same parent as the original logo
-  originalLogo.parentElement?.appendChild(customLogoElement);
-
-  console.log(customLogoElement, 'inserted into', originalLogo.parentElement);
-}
-
 function applyUIFixes() {
   try {
     const bodyClasses = document.body.classList;
@@ -387,10 +357,68 @@ function applyUIFixes() {
   }
 }
 
-applyUIFixes();
-initCustomLogo();
+/**
+ * Initialize custom logo by overriding inline styles
+ */
+async function initCustomLogo(): Promise<void> {
+  try {
+    // Wait for the logo element to exist
+    const logoEntity = await requireElement('ytlr-logo-entity', HTMLElement);
 
-setTimeout(() => {}, 2000);
+    // Function to update the thumbnail background
+    const updateThumbnail = () => {
+      const thumbnail = logoEntity.querySelector('ytlr-thumbnail-details');
+      if (thumbnail instanceof HTMLElement) {
+        // Override the inline style with our custom logo
+        thumbnail.style.backgroundImage = `url(${customLogoUrl})`;
+        return true;
+      }
+      return false;
+    };
+
+    // Try to update immediately
+    if (!updateThumbnail()) {
+      // If thumbnail doesn't exist yet, wait for it
+      const observer = new MutationObserver((mutations, obs) => {
+        if (updateThumbnail()) {
+          obs.disconnect();
+        }
+      });
+
+      observer.observe(logoEntity, {
+        childList: true,
+        subtree: true
+      });
+    }
+
+    // Also watch for future changes that might reset the background
+    const styleObserver = new MutationObserver(() => {
+      updateThumbnail();
+    });
+
+    // Observe the logo entity for any changes that might affect the thumbnail
+    styleObserver.observe(logoEntity, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style']
+    });
+  } catch (error) {
+    console.error('Error initializing custom logo:', error);
+  }
+}
+
+applyUIFixes();
+
+// Initialize custom logo on page load
+setTimeout(() => initCustomLogo(), 300);
+
+// Re-apply custom logo on page changes
+window.addEventListener('hashchange', () => {
+  console.info('[UI] Hash change detected, re-applying custom logo');
+  // Small delay to ensure DOM is ready after navigation
+  setTimeout(() => initCustomLogo(), 300);
+});
 
 setTimeout(() => {
   showNotification('Press [GREEN] to open YTAF configuration screen');

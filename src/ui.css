@@ -1,5 +1,14 @@
+/* Custom logo implementation */
 ytlr-logo-entity {
-  visibility: hidden !important;
+  transform: translateY(-5px);
+}
+
+ytlr-logo-entity ytlr-thumbnail-details {
+  /* Height and positioning for custom logo */
+  height: 121.4px !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
 }
 
 .ytaf-ui-container {
