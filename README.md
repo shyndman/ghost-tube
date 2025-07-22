@@ -50,7 +50,7 @@ via SSH or Telnet:
 luna-send-pub -n 1 'luna://com.webos.service.eim/addDevice' '{"appId":"youtube.leanback.v4","pigImage":"","mvpdIcon":""}'
 ```
 
-This will make "YouTube AdFree" display as an eligible input application (next
+This will make "GhostTube" display as an eligible input application (next
 to HDMI/Live TV, etc...), and, if it was the last selected input, it will be
 automatically launched when turning on the TV.
 

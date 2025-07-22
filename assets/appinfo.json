@@ -4,7 +4,7 @@
   "vendor": "webosbrew.org",
   "type": "web",
   "main": "index.html",
-  "title": "YouTube AdFree",
+  "title": "GhostTube",
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
   "iconColor": "#ff0000",
