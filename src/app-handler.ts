@@ -203,7 +203,8 @@ export class AppHandler {
         artist: videoState.creator,
         albumart: videoState.thumbnail,
         duration: videoState.duration,
-        mediatype: 'video'
+        mediatype: 'video',
+        videoId: videoState.videoId
       };
 
       this.mqttManager.publishMediaState(mediaState);
@@ -229,7 +230,8 @@ export class AppHandler {
         artist: null,
         albumart: null,
         duration: null,
-        mediatype: 'video'
+        mediatype: 'video',
+        videoId: null
       };
 
       this.mqttManager.publishMediaState(idleState);

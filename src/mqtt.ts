@@ -27,6 +27,7 @@ interface MediaState {
   albumart: string | null;
   duration: number | null;
   mediatype: 'video';
+  videoId: string | null;
 }
 
 interface SeekCommand {
@@ -57,6 +58,7 @@ class MqttManager {
     albumart: `${MQTT_CONFIG.topicPrefix}/albumart`,
     duration: `${MQTT_CONFIG.topicPrefix}/duration`,
     mediatype: `${MQTT_CONFIG.topicPrefix}/mediatype`,
+    videoid: `${MQTT_CONFIG.topicPrefix}/videoid`,
     // Command topics
     seek: `${MQTT_CONFIG.topicPrefix}/seek`,
     playmedia: `${MQTT_CONFIG.topicPrefix}/playmedia`,
@@ -370,6 +372,7 @@ class MqttManager {
       duration_topic: this.topics.duration,
       position_topic: this.topics.position,
       mediatype_topic: this.topics.mediatype,
+      videoid_topic: this.topics.videoid,
 
       // Command topics
       seek_topic: this.topics.seek,
@@ -409,12 +412,14 @@ class MqttManager {
       this.publish(this.topics.albumart, '');
       this.publish(this.topics.duration, '');
       this.publish(this.topics.position, '');
+      this.publish(this.topics.videoid, '');
     } else {
       // For non-idle states, publish actual values or empty strings
       this.publish(this.topics.title, state.title || '');
       this.publish(this.topics.artist, state.artist || '');
       this.publish(this.topics.albumart, state.albumart || '');
       this.publish(this.topics.duration, state.duration?.toString() || '');
+      this.publish(this.topics.videoid, state.videoId || '');
     }
 
     this.publish(this.topics.mediatype, state.mediatype);
