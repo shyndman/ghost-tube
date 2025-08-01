@@ -54,6 +54,13 @@ const configOptions = new Map([
       default: true,
       desc: 'Force max resolution video playback'
     }
+  ],
+  [
+    'mqttDeviceName',
+    {
+      default: 'living-room-tv',
+      desc: 'MQTT device name'
+    }
   ]
 ]);
 

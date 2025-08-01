@@ -1,5 +1,6 @@
 import mqtt from 'mqtt';
 import { showNotification } from './ui';
+import { configRead, configAddChangeListener } from './config';
 
 // MQTT Configuration Constants
 const MQTT_CONFIG = {
@@ -7,9 +8,29 @@ const MQTT_CONFIG = {
   port: 8083,
   username: undefined, // TODO: Set if needed
   password: undefined, // TODO: Set if needed
-  clientId: 'youtube-webos-' + Math.random().toString(16).substring(2, 10),
-  topicPrefix: 'homeassistant/media_player/living_room_tv_youtube'
+  clientId: 'youtube-webos-' + Math.random().toString(16).substring(2, 10)
 } as const;
+
+// Dynamic topic prefix functions
+function getDeviceName(): string {
+  return configRead('mqttDeviceName');
+}
+
+function getDiscoveryPrefix(): string {
+  return `homeassistant/media_player/${getDeviceName()}/ghost-tube`;
+}
+
+function getStatePrefix(): string {
+  return `ghost-tube/media_player/${getDeviceName()}`;
+}
+
+function getDeviceDisplayName(): string {
+  const deviceName = getDeviceName();
+  return deviceName
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
 // Connection state tracking
 interface MqttConnectionState {
@@ -49,25 +70,46 @@ class MqttManager {
     lastError: null,
     brokerUrl: null
   };
-  private topics = {
-    available: `${MQTT_CONFIG.topicPrefix}/available`,
-    state: `${MQTT_CONFIG.topicPrefix}/state`,
-    position: `${MQTT_CONFIG.topicPrefix}/position`,
-    title: `${MQTT_CONFIG.topicPrefix}/title`,
-    artist: `${MQTT_CONFIG.topicPrefix}/artist`,
-    albumart: `${MQTT_CONFIG.topicPrefix}/albumart`,
-    duration: `${MQTT_CONFIG.topicPrefix}/duration`,
-    mediatype: `${MQTT_CONFIG.topicPrefix}/mediatype`,
-    videoid: `${MQTT_CONFIG.topicPrefix}/videoid`,
-    // Command topics
-    seek: `${MQTT_CONFIG.topicPrefix}/seek`,
-    playmedia: `${MQTT_CONFIG.topicPrefix}/playmedia`,
-    play: `${MQTT_CONFIG.topicPrefix}/play`,
-    pause: `${MQTT_CONFIG.topicPrefix}/pause`,
-    stop: `${MQTT_CONFIG.topicPrefix}/stop`,
-    // Config topic for Home Assistant discovery
-    config: `homeassistant/media_player/living_room_tv_youtube/config`
+  private topics!: {
+    available: string;
+    state: string;
+    position: string;
+    title: string;
+    artist: string;
+    albumart: string;
+    duration: string;
+    mediatype: string;
+    videoid: string;
+    seek: string;
+    playmedia: string;
+    play: string;
+    pause: string;
+    stop: string;
+    config: string;
   };
+
+  private updateTopics() {
+    const statePrefix = getStatePrefix();
+    this.topics = {
+      available: `${statePrefix}/available`,
+      state: `${statePrefix}/state`,
+      position: `${statePrefix}/position`,
+      title: `${statePrefix}/title`,
+      artist: `${statePrefix}/artist`,
+      albumart: `${statePrefix}/albumart`,
+      duration: `${statePrefix}/duration`,
+      mediatype: `${statePrefix}/mediatype`,
+      videoid: `${statePrefix}/videoid`,
+      // Command topics
+      seek: `${statePrefix}/seek`,
+      playmedia: `${statePrefix}/playmedia`,
+      play: `${statePrefix}/play`,
+      pause: `${statePrefix}/pause`,
+      stop: `${statePrefix}/stop`,
+      // Config topic for Home Assistant discovery
+      config: `${getDiscoveryPrefix()}/config`
+    };
+  }
   private notificationShown = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectDelay = 5000; // Start with 5 second delay
@@ -84,7 +126,21 @@ class MqttManager {
 
   constructor() {
     console.info('[MQTT] Creating MqttManager...');
+    this.updateTopics();
     this.initVisibilityChangeListener();
+    this.initConfigChangeListener();
+  }
+
+  private initConfigChangeListener() {
+    configAddChangeListener('mqttDeviceName', () => {
+      console.info(
+        '[MQTT] Device name changed, updating topics and republishing discovery'
+      );
+      this.updateTopics();
+      if (this.client && this.client.connected) {
+        this.publishDiscoveryConfig();
+      }
+    });
   }
 
   setOnIdleStateCallback(callback: () => void) {
@@ -355,9 +411,12 @@ class MqttManager {
   }
 
   private publishDiscoveryConfig(): void {
+    const deviceName = getDeviceName();
+    const deviceDisplayName = getDeviceDisplayName();
+
     const config = {
-      name: 'Living Room TV GhostTube',
-      unique_id: 'living_room_tv_ghosttube',
+      name: `${deviceDisplayName} GhostTube`,
+      unique_id: `${deviceName.replace(/-/g, '_')}_ghosttube`,
 
       // Availability
       availability_topic: this.topics.available,
@@ -365,38 +424,40 @@ class MqttManager {
       // State topics
       state_topic: this.topics.state,
 
-      // Media information topics
-      title_topic: this.topics.title,
-      artist_topic: this.topics.artist,
-      albumart_topic: this.topics.albumart,
-      duration_topic: this.topics.duration,
-      position_topic: this.topics.position,
-      mediatype_topic: this.topics.mediatype,
+      // Media information topics (v2.0 spec field names)
+      media_title_topic: this.topics.title,
+      media_artist_topic: this.topics.artist,
+      media_image_url_topic: this.topics.albumart,
+      media_duration_topic: this.topics.duration,
+      media_position_topic: this.topics.position,
+      media_content_type_topic: this.topics.mediatype,
+
+      // Custom topic for video ID (not in v2.0 spec but useful)
       videoid_topic: this.topics.videoid,
 
-      // Command topics
+      // Command topics (v2.0 spec field names)
       seek_topic: this.topics.seek,
-      playmedia_topic: this.topics.playmedia,
+      play_media_topic: this.topics.playmedia,
       play_topic: this.topics.play,
-      play_payload: 'play',
       pause_topic: this.topics.pause,
-      pause_payload: 'pause',
       stop_topic: this.topics.stop,
-      stop_payload: 'stop',
 
       // Device information
       device: {
-        identifiers: ['webos_youtube_app'],
-        name: 'webOS YouTube App',
-        model: 'YouTube TV App',
+        identifiers: [`webos_youtube_app_${deviceName}`],
+        name: deviceDisplayName,
+        model: 'GhostTube YouTube TV App',
         manufacturer: 'webOS',
-        sw_version: '0.3.8'
+        sw_version: '0.4.0'
       }
     };
 
     const configPayload = JSON.stringify(config);
     this.publish(this.topics.config, configPayload, { retain: true });
-    console.info('[MQTT] Published discovery configuration');
+    console.info(
+      '[MQTT] Published v2.0 discovery configuration for device:',
+      deviceName
+    );
   }
 
   publishMediaState(state: MediaState): void {
