@@ -33,8 +33,8 @@ type ArrowDirection = 'left' | 'up' | 'right' | 'down';
 
 interface ConfigChangeEvent extends CustomEvent {
   detail: {
-    newValue: boolean;
-    oldValue: boolean;
+    newValue: boolean | string;
+    oldValue: boolean | string;
   };
 }
 
@@ -89,7 +89,7 @@ function createConfigCheckbox(key: string): HTMLLabelElement {
 
   configAddChangeListener(key, (evt: Event) => {
     const customEvt = evt as ConfigChangeEvent;
-    elmInput.checked = customEvt.detail.newValue;
+    elmInput.checked = customEvt.detail.newValue as boolean;
   });
 
   const elmLabel = document.createElement('label');
@@ -100,24 +100,75 @@ function createConfigCheckbox(key: string): HTMLLabelElement {
   return elmLabel;
 }
 
-function createMqttStatusSection(): HTMLDivElement {
+function createConfigTextInput(key: string): HTMLLabelElement {
+  const elmInput = document.createElement('input');
+  elmInput.type = 'text';
+  elmInput.value = configRead(key) as string;
+  elmInput.classList.add('config-text-input');
+
+  // Validate device name format (kebab-case)
+  const validateDeviceName = (value: string): boolean => {
+    return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value);
+  };
+
+  const updateValue = (): void => {
+    const value = elmInput.value.trim();
+    if (value && validateDeviceName(value)) {
+      elmInput.classList.remove('invalid');
+      configWrite(key, value);
+    } else {
+      elmInput.classList.add('invalid');
+    }
+  };
+
+  elmInput.addEventListener('blur', updateValue);
+  elmInput.addEventListener('keydown', (evt: KeyboardEvent) => {
+    if (evt.keyCode === 13) {
+      // Enter key
+      evt.preventDefault();
+      updateValue();
+      elmInput.blur();
+    }
+  });
+
+  configAddChangeListener(key, (evt: Event) => {
+    const customEvt = evt as ConfigChangeEvent;
+    elmInput.value = customEvt.detail.newValue as string;
+  });
+
+  const elmLabel = document.createElement('label');
+  elmLabel.classList.add('config-text-label');
+
+  const labelText = document.createElement('div');
+  labelText.textContent = configGetDesc(key);
+  labelText.classList.add('config-label-text');
+
+  elmLabel.appendChild(labelText);
+  elmLabel.appendChild(elmInput);
+
+  return elmLabel;
+}
+
+function createMqttConfigSection(): HTMLDivElement {
+  const configContainer = document.createElement('div');
+  configContainer.classList.add('ytaf-mqtt-config');
+
+  const configHeading = document.createElement('h2');
+  configHeading.textContent = 'MQTT Configuration';
+  configHeading.classList.add('config-section-heading');
+  configContainer.appendChild(configHeading);
+
+  // Add status section first
   const statusContainer = document.createElement('div');
   statusContainer.classList.add('ytaf-mqtt-status');
-  statusContainer.style.marginTop = '20px';
-  statusContainer.style.padding = '10px';
-  statusContainer.style.border = '1px solid #444';
-  statusContainer.style.borderRadius = '5px';
 
   const statusHeading = document.createElement('h3');
-  statusHeading.textContent = 'MQTT Status';
-  statusHeading.style.margin = '0 0 10px 0';
-  statusHeading.style.fontSize = '14px';
+  statusHeading.textContent = 'Connection Status';
+  statusHeading.classList.add('config-subsection-heading');
   statusContainer.appendChild(statusHeading);
 
   const statusText = document.createElement('div');
   statusText.classList.add('ytaf-mqtt-status-text');
-  statusText.style.fontSize = '12px';
-  statusText.style.lineHeight = '1.4';
   statusContainer.appendChild(statusText);
 
   // Function to update status display
@@ -156,7 +207,12 @@ function createMqttStatusSection(): HTMLDivElement {
   // Store the interval so it can be cleaned up if needed
   (statusContainer as any)._statusInterval = statusInterval;
 
-  return statusContainer;
+  configContainer.appendChild(statusContainer);
+
+  // Add device name text input after status
+  configContainer.appendChild(createConfigTextInput('mqttDeviceName'));
+
+  return configContainer;
 }
 
 function createOptionsPanel(): HTMLDivElement {
@@ -225,7 +281,17 @@ function createOptionsPanel(): HTMLDivElement {
   elmContainer.appendChild(createConfigCheckbox('forceHighResVideo'));
   elmContainer.appendChild(createConfigCheckbox('enableSponsorBlock'));
 
+  // Add MQTT configuration section
+  const mqttConfigSection = createMqttConfigSection();
+  elmContainer.appendChild(mqttConfigSection);
+
   const elmBlock = document.createElement('blockquote');
+  elmBlock.classList.add('sponsorblock-section');
+
+  const sponsorBlockHeading = document.createElement('h2');
+  sponsorBlockHeading.textContent = 'SponsorBlock Options';
+  sponsorBlockHeading.classList.add('config-section-heading');
+  elmBlock.appendChild(sponsorBlockHeading);
 
   elmBlock.appendChild(createConfigCheckbox('enableSponsorBlockSponsor'));
   elmBlock.appendChild(createConfigCheckbox('enableSponsorBlockIntro'));
@@ -235,16 +301,12 @@ function createOptionsPanel(): HTMLDivElement {
   elmBlock.appendChild(createConfigCheckbox('enableSponsorBlockMusicOfftopic'));
   elmBlock.appendChild(createConfigCheckbox('enableSponsorBlockPreview'));
 
-  elmContainer.appendChild(elmBlock);
-
   const elmSponsorLink = document.createElement('div');
   elmSponsorLink.innerHTML =
     '<small class="ytaf-ui-sponsor">Sponsor segments skipping - https://sponsor.ajay.app</small>';
-  elmContainer.appendChild(elmSponsorLink);
+  elmBlock.appendChild(elmSponsorLink);
 
-  // Add MQTT status section
-  const mqttStatusSection = createMqttStatusSection();
-  elmContainer.appendChild(mqttStatusSection);
+  elmContainer.appendChild(elmBlock);
 
   return elmContainer;
 }
