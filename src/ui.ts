@@ -276,7 +276,6 @@ function createOptionsPanel(): HTMLDivElement {
   elmContainer.appendChild(elmHeading);
 
   elmContainer.appendChild(createConfigCheckbox('upgradeThumbnails'));
-  elmContainer.appendChild(createConfigCheckbox('showWatch'));
   elmContainer.appendChild(createConfigCheckbox('removeShorts'));
   elmContainer.appendChild(createConfigCheckbox('forceHighResVideo'));
   elmContainer.appendChild(createConfigCheckbox('enableSponsorBlock'));

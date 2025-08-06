@@ -90,7 +90,6 @@ Each feature is implemented as a separate module imported by `userScript.js`:
 - `video-quality.ts` - Video quality enforcement
 - `thumbnail-quality.ts` - Thumbnail quality enhancement
 - `screensaver-fix.ts` - Prevents screensaver during playback
-- `watch.js` - Watch page enhancements
 - `hass.ts` - Main initialization and global instance management
 - `app-handler.ts` - Application state management and component coordination
 - `media-controller.ts` - Video monitoring and media control command handling (formerly VideoHandler)

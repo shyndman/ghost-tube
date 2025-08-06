@@ -42,13 +42,6 @@ const configOptions = new Map([
     }
   ],
   [
-    'showWatch',
-    {
-      default: false,
-      desc: 'Display time in UI'
-    }
-  ],
-  [
     'forceHighResVideo',
     {
       default: true,
