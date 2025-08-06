@@ -20,7 +20,7 @@
   "deeplinkingParams": "{\"contentTarget\":\"v=$CONTENTID\"}",
   "inAppSearchParams": "{\"target\":\"q=$SEARCH_KEYWORD\"}",
   "inAppVoiceIntent": "{\"target\":{\"intent\":\"$INTENT\",\"intentParam\":\"$INTENT_PARAM\",\"languageCode\":\"$LANG_CODE\"}}",
-  "supportQueryRouting": "{\"amazonAlexa\":true,\"googleAssistant\":true}",
+  "supportQueryRouting": "{\"amazonAlexa\":false,\"googleAssistant\":true}",
   "enablePigScreenSaver": false,
   "trustLevel": "netcast",
   "privilegedJail": true,
