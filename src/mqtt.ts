@@ -463,33 +463,41 @@ class MqttManager {
   publishMediaState(state: MediaState): void {
     if (!this.client || !this.client.connected) return;
 
-    // Always publish state
-    this.publish(this.topics.state, state.state);
+    // Always publish state with retain
+    this.publish(this.topics.state, state.state, { retain: true });
 
     // For idle state, explicitly clear all media fields with empty strings
     if (state.state === 'idle') {
-      this.publish(this.topics.title, '');
-      this.publish(this.topics.artist, '');
-      this.publish(this.topics.albumart, '');
-      this.publish(this.topics.duration, '');
-      this.publish(this.topics.position, '');
-      this.publish(this.topics.videoid, '');
+      this.publish(this.topics.title, '', { retain: true });
+      this.publish(this.topics.artist, '', { retain: true });
+      this.publish(this.topics.albumart, '', { retain: true });
+      this.publish(this.topics.duration, '', { retain: true });
+      this.publish(this.topics.position, '', { retain: true });
+      this.publish(this.topics.videoid, '', { retain: true });
     } else {
       // For non-idle states, publish actual values or empty strings
-      this.publish(this.topics.title, state.title || '');
-      this.publish(this.topics.artist, state.artist || '');
-      this.publish(this.topics.albumart, state.albumart || '');
-      this.publish(this.topics.duration, state.duration?.toString() || '');
-      this.publish(this.topics.videoid, state.videoId || '');
+      this.publish(this.topics.title, state.title || '', { retain: true });
+      this.publish(this.topics.artist, state.artist || '', { retain: true });
+      this.publish(this.topics.albumart, state.albumart || '', {
+        retain: true
+      });
+      this.publish(
+        this.topics.duration,
+        state.duration ? Math.floor(state.duration).toString() : '',
+        { retain: true }
+      );
+      this.publish(this.topics.videoid, state.videoId || '', { retain: true });
     }
 
-    this.publish(this.topics.mediatype, state.mediatype);
+    this.publish(this.topics.mediatype, state.mediatype, { retain: true });
 
     console.info('[MQTT] Published media state:', state);
   }
 
   publishPosition(position: number): void {
-    this.publish(this.topics.position, position.toString());
+    this.publish(this.topics.position, Math.floor(position).toString(), {
+      retain: true
+    });
   }
 
   private publish(
