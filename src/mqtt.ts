@@ -40,6 +40,11 @@ interface MqttConnectionState {
   brokerUrl: string | null;
 }
 
+interface CustomAttributes {
+  video_id?: string;
+  [key: string]: any;
+}
+
 interface MediaState {
   state: 'playing' | 'paused' | 'stopped' | 'idle';
   position: number | null;
@@ -49,6 +54,7 @@ interface MediaState {
   duration: number | null;
   mediatype: 'video';
   videoId: string | null;
+  attributes?: CustomAttributes;
 }
 
 interface SeekCommand {
@@ -79,7 +85,7 @@ class MqttManager {
     albumart: string;
     duration: string;
     mediatype: string;
-    videoid: string;
+    attributes: string;
     seek: string;
     playmedia: string;
     play: string;
@@ -99,7 +105,7 @@ class MqttManager {
       albumart: `${statePrefix}/albumart`,
       duration: `${statePrefix}/duration`,
       mediatype: `${statePrefix}/mediatype`,
-      videoid: `${statePrefix}/videoid`,
+      attributes: `${statePrefix}/json_attributes`,
       // Command topics
       seek: `${statePrefix}/seek`,
       playmedia: `${statePrefix}/playmedia`,
@@ -456,8 +462,8 @@ class MqttManager {
       media_position_topic: this.topics.position,
       media_content_type_topic: this.topics.mediatype,
 
-      // Custom topic for video ID (not in v2.0 spec but useful)
-      videoid_topic: this.topics.videoid,
+      // JSON attributes for custom fields
+      json_attributes_topic: this.topics.attributes,
 
       // Command topics (v2.0 spec field names)
       seek_topic: this.topics.seek,
@@ -497,7 +503,6 @@ class MqttManager {
       this.publish(this.topics.albumart, '', { retain: true });
       this.publish(this.topics.duration, '', { retain: true });
       this.publish(this.topics.position, '', { retain: true });
-      this.publish(this.topics.videoid, '', { retain: true });
     } else {
       // For non-idle states, publish actual values or empty strings
       this.publish(this.topics.title, state.title || '', { retain: true });
@@ -510,10 +515,16 @@ class MqttManager {
         state.duration ? Math.floor(state.duration).toString() : '',
         { retain: true }
       );
-      this.publish(this.topics.videoid, state.videoId || '', { retain: true });
     }
 
     this.publish(this.topics.mediatype, state.mediatype, { retain: true });
+
+    // Publish custom attributes
+    const attributes: CustomAttributes = {
+      video_id: state.videoId || '',
+      ...state.attributes
+    };
+    this.publishJson(this.topics.attributes, attributes, { retain: true });
 
     console.info('[MQTT] Published media state:', state);
   }
@@ -546,6 +557,14 @@ class MqttManager {
         }
       }
     );
+  }
+
+  private publishJson(
+    topic: string,
+    payload: Record<string, any>,
+    options: mqtt.IClientPublishOptions = {}
+  ): void {
+    this.publish(topic, JSON.stringify(payload), options);
   }
 
   getConnectionState(): MqttConnectionState {
