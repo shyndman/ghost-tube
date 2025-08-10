@@ -1,5 +1,4 @@
 /*global navigate*/
-import './spatial-navigation-polyfill.js';
 import {
   configAddChangeListener,
   configRead,
@@ -12,18 +11,10 @@ import { requireElement } from './player-api';
 // @ts-ignore - Asset import handled by webpack
 import customLogoUrl from '../assets/customLogo.2x.png';
 
-// Type declarations
-interface SpatialNavigation {
-  keyMode: string;
-}
-
 declare global {
   interface Window {
-    __spatialNavigation__: SpatialNavigation;
     ytaf_showOptionsPanel: (visible?: boolean) => void;
   }
-
-  function navigate(direction: ArrowDirection): void;
 }
 
 // Asset declarations are handled by webpack
@@ -37,16 +28,6 @@ interface ConfigChangeEvent extends CustomEvent {
     oldValue: boolean | string;
   };
 }
-
-// We handle key events ourselves.
-window.__spatialNavigation__.keyMode = 'NONE';
-
-const ARROW_KEY_CODE: Record<number, ArrowDirection> = {
-  37: 'left',
-  38: 'up',
-  39: 'right',
-  40: 'down'
-};
 
 // Red, Green, Yellow, Blue
 // 403,   404,    405,  406
@@ -242,12 +223,8 @@ function createOptionsPanel(): HTMLDivElement {
         return;
       }
 
-      if (evt.keyCode in ARROW_KEY_CODE) {
-        const direction = ARROW_KEY_CODE[evt.keyCode];
-        if (direction) {
-          navigate(direction);
-        }
-      } else if (evt.keyCode === 13) {
+      let handled = true;
+      if (evt.keyCode === 13) {
         // "OK" button
 
         /**
@@ -263,10 +240,14 @@ function createOptionsPanel(): HTMLDivElement {
       } else if (evt.keyCode === 27) {
         // Back button
         showOptionsPanel(false);
+      } else {
+        handled = false;
       }
 
-      evt.preventDefault();
-      evt.stopPropagation();
+      if (handled) {
+        evt.preventDefault();
+        evt.stopPropagation();
+      }
     },
     true
   );
