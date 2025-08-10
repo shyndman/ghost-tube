@@ -115,6 +115,7 @@ class MqttManager {
   private reconnectDelay = 5000; // Start with 5 second delay
   private maxReconnectDelay = 60000; // Max 1 minute delay
   private positionUpdateInterval: NodeJS.Timeout | null = null;
+  private discoveryRepublishInterval: NodeJS.Timeout | null = null;
 
   // Visibility change handling
   private isVisible = true;
@@ -261,6 +262,9 @@ class MqttManager {
 
         // Start position updates
         this.startPositionUpdates();
+
+        // Start periodic discovery republishing
+        this.startDiscoveryRepublishing();
       });
 
       this.client.on('error', (error) => {
@@ -274,6 +278,7 @@ class MqttManager {
         console.info('[MQTT] Connection closed');
         this.connectionState.status = 'disconnected';
         this.stopPositionUpdates();
+        this.stopDiscoveryRepublishing();
         this.scheduleReconnect();
       });
 
@@ -281,6 +286,7 @@ class MqttManager {
         console.info('[MQTT] Client offline');
         this.connectionState.status = 'disconnected';
         this.stopPositionUpdates();
+        this.stopDiscoveryRepublishing();
       });
 
       this.client.on('message', (topic, payload, packet) => {
@@ -401,6 +407,24 @@ class MqttManager {
     if (this.positionUpdateInterval) {
       clearInterval(this.positionUpdateInterval);
       this.positionUpdateInterval = null;
+    }
+  }
+
+  private startDiscoveryRepublishing(): void {
+    this.stopDiscoveryRepublishing(); // Clear any existing interval
+
+    this.discoveryRepublishInterval = setInterval(() => {
+      if (this.client && this.client.connected) {
+        console.info('[MQTT] Republishing discovery configuration (periodic)');
+        this.publishDiscoveryConfig();
+      }
+    }, 120000); // Every 2 minutes (120000ms)
+  }
+
+  private stopDiscoveryRepublishing(): void {
+    if (this.discoveryRepublishInterval) {
+      clearInterval(this.discoveryRepublishInterval);
+      this.discoveryRepublishInterval = null;
     }
   }
 
@@ -541,6 +565,7 @@ class MqttManager {
     }
 
     this.stopPositionUpdates();
+    this.stopDiscoveryRepublishing();
 
     // Remove visibility change listener
     document.removeEventListener(
