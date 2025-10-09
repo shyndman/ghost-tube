@@ -246,9 +246,49 @@ class SponsorBlockHandler {
       return;
     }
 
+    if (!this.video) {
+      console.info(this.videoID, 'No video element attached, ignoring...');
+      return;
+    }
+
+    if (!this.segments || !this.segments.length) {
+      console.info(this.videoID, 'No segments available');
+      return;
+    }
+
     if (this.video.paused) {
       console.info(this.videoID, 'Currently paused, ignoring...');
       return;
+    }
+
+    const currentTime = this.video.currentTime;
+
+    const activeSegment = this.segments.find((seg) => {
+      const [start, end] = seg.segment;
+      return start <= currentTime && currentTime < end;
+    });
+
+    if (activeSegment) {
+      if (this.skippableCategories.includes(activeSegment.category)) {
+        const skipName =
+          barTypes[activeSegment.category]?.name || activeSegment.category;
+        console.info(
+          this.videoID,
+          'Skipping active segment after seek',
+          activeSegment
+        );
+        showNotification(`Skipping ${skipName}`);
+        this.video.currentTime = activeSegment.segment[1];
+        setTimeout(() => this.scheduleSkip(), 0);
+        return;
+      }
+
+      console.info(
+        this.videoID,
+        'Inside segment',
+        activeSegment.category,
+        'but not skippable with current settings'
+      );
     }
 
     // Sometimes timeupdate event (that calls scheduleSkip) gets fired right before
@@ -256,8 +296,8 @@ class SponsorBlockHandler {
     // and, in worst case, perform a skip at negative interval (immediately)...
     const nextSegments = this.segments.filter(
       (seg) =>
-        seg.segment[0] > this.video.currentTime - 0.3 &&
-        seg.segment[1] > this.video.currentTime - 0.3
+        seg.segment[0] >= currentTime - 0.3 &&
+        seg.segment[1] > currentTime - 0.3
     );
     nextSegments.sort((s1, s2) => s1.segment[0] - s2.segment[0]);
 
@@ -268,38 +308,43 @@ class SponsorBlockHandler {
 
     const [segment] = nextSegments;
     const [start, end] = segment.segment;
+    const delaySeconds = start - currentTime;
     console.info(
       this.videoID,
       'Scheduling skip of',
       segment,
       'in',
-      start - this.video.currentTime
+      delaySeconds
     );
 
-    this.nextSkipTimeout = setTimeout(
-      () => {
-        if (this.video.paused) {
-          console.info(this.videoID, 'Currently paused, ignoring...');
-          return;
-        }
-        if (!this.skippableCategories.includes(segment.category)) {
-          console.info(
-            this.videoID,
-            'Segment',
-            segment.category,
-            'is not skippable, ignoring...'
-          );
-          return;
-        }
+    const delay = Math.max(delaySeconds * 1000, 0);
 
-        const skipName = barTypes[segment.category]?.name || segment.category;
-        console.info(this.videoID, 'Skipping', segment);
-        showNotification(`Skipping ${skipName}`);
-        this.video.currentTime = end;
-        this.scheduleSkip();
-      },
-      (start - this.video.currentTime) * 1000
-    );
+    this.nextSkipTimeout = setTimeout(() => {
+      if (!this.video) {
+        console.info(this.videoID, 'No video element during skip, ignoring...');
+        return;
+      }
+
+      if (this.video.paused) {
+        console.info(this.videoID, 'Currently paused, ignoring...');
+        return;
+      }
+      if (!this.skippableCategories.includes(segment.category)) {
+        console.info(
+          this.videoID,
+          'Segment',
+          segment.category,
+          'is not skippable, ignoring...'
+        );
+        return;
+      }
+
+      const skipName = barTypes[segment.category]?.name || segment.category;
+      console.info(this.videoID, 'Skipping', segment);
+      showNotification(`Skipping ${skipName}`);
+      this.video.currentTime = end;
+      this.scheduleSkip();
+    }, delay);
   }
 
   destroy() {
