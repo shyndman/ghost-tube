@@ -8,6 +8,7 @@
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
   "iconColor": "#ff0000",
+  "splashBackground": "splash.png",
   "support360Content": true,
   "checkUpdateOnLaunch": false,
   "accessibility": {
