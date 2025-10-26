@@ -123,6 +123,67 @@ export class AppHandler {
     this._mediaController = null;
   }
 
+  /**
+   * Leanback navigation helper used by MQTT playmedia.
+   *
+   * Through remote DevTools we verified that the YouTube TV shell keeps a
+   * reference to its internal navigation service on
+   * `document.querySelector('ytlr-app').__instance.da`. Calling
+   * `resolveCommand({ watchEndpoint: { videoId } })` mirrors the behaviour of
+   * selecting a tile with the remote: it transitions to the watch route without
+   * reloading the document and avoids the account picker detour caused by
+   * forcibly mutating `window.location.hash`.
+   *
+   * This method first tries that internal API and falls back to the hash change
+   * tactic if the Leanback internals ever move (e.g. after a YouTube deploy) so
+   * that we still have a best-effort path to start playback.
+   */
+  private navigateToVideo(videoId: string) {
+    const fallbackToHash = () => {
+      const newHash = `#/watch?v=${videoId}`;
+      console.info('[APP-HANDLER] Falling back to hash navigation', newHash);
+      if (window.location.hash !== newHash) {
+        window.location.hash = newHash;
+      } else {
+        this.checkPageState();
+      }
+    };
+
+    try {
+      const leanbackApp = document.querySelector('ytlr-app') as any;
+      const appInstance = leanbackApp?.__instance;
+      const navigation = appInstance?.da;
+
+      if (!navigation || typeof navigation.resolveCommand !== 'function') {
+        console.warn(
+          '[APP-HANDLER] Leanback navigation unavailable, using hash fallback'
+        );
+        fallbackToHash();
+        return;
+      }
+
+      const command = { watchEndpoint: { videoId } };
+      const resolved = navigation.resolveCommand(command);
+
+      if (resolved !== true) {
+        console.warn(
+          '[APP-HANDLER] Leanback resolveCommand returned unexpected value:',
+          resolved
+        );
+        // Hash fallback keeps behaviour working even if command signature changes.
+        fallbackToHash();
+      } else {
+        console.info(
+          '[APP-HANDLER] Navigated via Leanback resolveCommand with video:',
+          videoId
+        );
+      }
+    } catch (error) {
+      console.error('[APP-HANDLER] Error during Leanback navigation:', error);
+      fallbackToHash();
+    }
+  }
+
   private handleMediaCommand(command: string, payload: string) {
     console.info(
       `[APP-HANDLER] Received media command: ${command} with payload: ${payload}`
@@ -189,21 +250,7 @@ export class AppHandler {
           videoId = payload.trim();
         }
         if (videoId) {
-          if (this._mediaController) {
-            this._mediaController.handlePlayMediaCommand(videoId);
-          } else {
-            const newHash = `#/watch?v=${videoId}`;
-            console.info(
-              '[APP-HANDLER] Navigating to video via MQTT playmedia command',
-              newHash
-            );
-            if (window.location.hash !== newHash) {
-              window.location.hash = newHash;
-            } else {
-              // Force state check when hash matches to ensure controller bootstraps.
-              this.checkPageState();
-            }
-          }
+          this.navigateToVideo(videoId);
         }
         break;
       default:
