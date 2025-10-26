@@ -128,31 +128,51 @@ export class AppHandler {
       `[APP-HANDLER] Received media command: ${command} with payload: ${payload}`
     );
 
-    if (!this._mediaController) {
-      console.warn(
-        '[APP-HANDLER] No MediaController available for command:',
-        command
-      );
-      return;
-    }
-
     switch (command) {
       case 'play':
+        if (!this._mediaController) {
+          console.warn(
+            '[APP-HANDLER] No MediaController available for command:',
+            command
+          );
+          return;
+        }
         if (payload.trim() === 'play') {
           this._mediaController.handlePlayCommand();
         }
         break;
       case 'pause':
+        if (!this._mediaController) {
+          console.warn(
+            '[APP-HANDLER] No MediaController available for command:',
+            command
+          );
+          return;
+        }
         if (payload.trim() === 'pause') {
           this._mediaController.handlePauseCommand();
         }
         break;
       case 'stop':
+        if (!this._mediaController) {
+          console.warn(
+            '[APP-HANDLER] No MediaController available for command:',
+            command
+          );
+          return;
+        }
         if (payload.trim() === 'stop') {
           this._mediaController.handleStopCommand();
         }
         break;
       case 'seek':
+        if (!this._mediaController) {
+          console.warn(
+            '[APP-HANDLER] No MediaController available for command:',
+            command
+          );
+          return;
+        }
         const position = parseInt(payload, 10);
         if (!isNaN(position)) {
           this._mediaController.handleSeekCommand(position);
@@ -169,7 +189,21 @@ export class AppHandler {
           videoId = payload.trim();
         }
         if (videoId) {
-          this._mediaController.handlePlayMediaCommand(videoId);
+          if (this._mediaController) {
+            this._mediaController.handlePlayMediaCommand(videoId);
+          } else {
+            const newHash = `#/watch?v=${videoId}`;
+            console.info(
+              '[APP-HANDLER] Navigating to video via MQTT playmedia command',
+              newHash
+            );
+            if (window.location.hash !== newHash) {
+              window.location.hash = newHash;
+            } else {
+              // Force state check when hash matches to ensure controller bootstraps.
+              this.checkPageState();
+            }
+          }
         }
         break;
       default:
