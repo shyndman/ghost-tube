@@ -50,13 +50,7 @@ class SponsorBlockHandler {
   attachVideoTimeout = null;
   nextSkipTimeout = null;
 
-  slider = null;
-  sliderInterval = null;
-  sliderObserver = null;
-  sliderSegmentsOverlay = null;
-
   scheduleSkipHandler = null;
-  durationChangeHandler = null;
   segments = null;
   skippableCategories = [];
 
@@ -94,10 +88,8 @@ class SponsorBlockHandler {
     this.skippableCategories = this.getSkippableCategories();
 
     this.scheduleSkipHandler = () => this.scheduleSkip();
-    this.durationChangeHandler = () => this.buildOverlay();
 
     this.attachVideo();
-    this.buildOverlay();
   }
 
   getSkippableCategories() {
@@ -142,99 +134,6 @@ class SponsorBlockHandler {
     this.video.addEventListener('play', this.scheduleSkipHandler);
     this.video.addEventListener('pause', this.scheduleSkipHandler);
     this.video.addEventListener('timeupdate', this.scheduleSkipHandler);
-    this.video.addEventListener('durationchange', this.durationChangeHandler);
-  }
-
-  buildOverlay() {
-    if (this.sliderSegmentsOverlay) {
-      console.info('Overlay already built');
-      return;
-    }
-
-    if (!this.video || !this.video.duration) {
-      console.info('No video duration yet');
-      return;
-    }
-
-    const videoDuration = this.video.duration;
-
-    this.sliderSegmentsOverlay = document.createElement('div');
-    this.sliderSegmentsOverlay.className =
-      'ytaf-sponsorblock-segment-container';
-
-    this.segments.forEach((segment) => {
-      const [start, end] = segment.segment;
-      const barType = barTypes[segment.category] || {
-        color: 'blue'
-      };
-      const elm = document.createElement('div');
-      elm.className = 'ytaf-sponsorblock-segment';
-      elm.style['background-color'] = barType.color;
-      elm.style['left'] = `${(start / videoDuration) * 100.0}%`;
-      elm.style['width'] = `${((end - start) / videoDuration) * 100.0}%`;
-      this.sliderSegmentsOverlay.appendChild(elm);
-    });
-
-    const addSliderObserver = (ele) => {
-      this.sliderObserver.observe(ele, {
-        childList: true,
-        subtree: true
-      });
-    };
-
-    const addSliderOverlay = () => {
-      this.slider.appendChild(this.sliderSegmentsOverlay);
-    };
-
-    const watchForSlider = () => {
-      if (this.sliderInterval) clearInterval(this.sliderInterval);
-
-      this.sliderInterval = setInterval(() => {
-        const nodes = document.querySelectorAll('[idomkey=progress-bar]');
-        const last = nodes[nodes.length - 1];
-        switch (nodes.length) {
-          case 3: {
-            // Slider has chapter markers.
-            this.slider = last;
-            break;
-          }
-          case 2: {
-            // Slider has no markers or auto-markers
-            this.slider = last.querySelector('[idomkey=slider]');
-            break;
-          }
-          default: {
-            return; // no slider found yet
-          }
-        }
-
-        console.info('slider found...', this.slider);
-        clearInterval(this.sliderInterval);
-        this.sliderInterval = null;
-        addSliderObserver(last);
-        addSliderOverlay();
-      }, 100);
-    };
-
-    this.sliderObserver = new MutationObserver((mutations) => {
-      mutations.forEach((m) => {
-        if (m.removedNodes) {
-          for (const node of m.removedNodes) {
-            if (node === this.sliderSegmentsOverlay) {
-              console.info('bringing back segments overlay');
-              addSliderOverlay();
-            }
-            if (node === this.slider) {
-              console.info('slider removed, watching again');
-              this.sliderObserver.disconnect();
-              watchForSlider();
-            }
-          }
-        }
-      });
-    });
-
-    watchForSlider();
   }
 
   scheduleSkip() {
@@ -362,29 +261,10 @@ class SponsorBlockHandler {
       this.attachVideoTimeout = null;
     }
 
-    if (this.sliderInterval) {
-      clearInterval(this.sliderInterval);
-      this.sliderInterval = null;
-    }
-
-    if (this.sliderObserver) {
-      this.sliderObserver.disconnect();
-      this.sliderObserver = null;
-    }
-
-    if (this.sliderSegmentsOverlay) {
-      this.sliderSegmentsOverlay.remove();
-      this.sliderSegmentsOverlay = null;
-    }
-
     if (this.video) {
       this.video.removeEventListener('play', this.scheduleSkipHandler);
       this.video.removeEventListener('pause', this.scheduleSkipHandler);
       this.video.removeEventListener('timeupdate', this.scheduleSkipHandler);
-      this.video.removeEventListener(
-        'durationchange',
-        this.durationChangeHandler
-      );
     }
   }
 }
