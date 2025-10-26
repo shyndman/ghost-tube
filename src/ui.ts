@@ -402,49 +402,78 @@ function applyUIFixes() {
 /**
  * Initialize custom logo by overriding inline styles
  */
+const processedLogoEntities = new Set<HTMLElement>();
+
+function applyCustomLogoToEntity(logoEntity: HTMLElement) {
+  // Force the GhostTube mark into every Leanback logo container we discover.
+  const updateThumbnail = () => {
+    const thumbnail = logoEntity.querySelector('ytlr-thumbnail-details');
+    if (thumbnail instanceof HTMLElement) {
+      thumbnail.style.backgroundImage = `url(${customLogoUrl})`;
+      return true;
+    }
+    return false;
+  };
+
+  if (processedLogoEntities.has(logoEntity)) {
+    updateThumbnail();
+    return;
+  }
+
+  processedLogoEntities.add(logoEntity);
+
+  if (!updateThumbnail()) {
+    const childObserver = new MutationObserver((_, obs) => {
+      if (updateThumbnail()) {
+        obs.disconnect();
+      }
+    });
+
+    childObserver.observe(logoEntity, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  const styleObserver = new MutationObserver(updateThumbnail);
+
+  styleObserver.observe(logoEntity, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style']
+  });
+}
+
 async function initCustomLogo(): Promise<void> {
   try {
-    // Wait for the logo element to exist
-    const logoEntity = await requireElement('ytlr-logo-entity', HTMLElement);
+    await requireElement('ytlr-logo-entity', HTMLElement);
 
-    // Function to update the thumbnail background
-    const updateThumbnail = () => {
-      const thumbnail = logoEntity.querySelector('ytlr-thumbnail-details');
-      if (thumbnail instanceof HTMLElement) {
-        // Override the inline style with our custom logo
-        thumbnail.style.backgroundImage = `url(${customLogoUrl})`;
-        return true;
-      }
-      return false;
+    const scanForLogos = () => {
+      let added = false;
+      document.querySelectorAll('ytlr-logo-entity').forEach((el) => {
+        const element = el as HTMLElement;
+        if (!processedLogoEntities.has(element)) {
+          added = true;
+        }
+        applyCustomLogoToEntity(element);
+      });
+      return added;
     };
 
-    // Try to update immediately
-    if (!updateThumbnail()) {
-      // If thumbnail doesn't exist yet, wait for it
-      const observer = new MutationObserver((mutations, obs) => {
-        if (updateThumbnail()) {
-          obs.disconnect();
-        }
-      });
+    scanForLogos();
 
-      observer.observe(logoEntity, {
-        childList: true,
-        subtree: true
-      });
-    }
+    const maxPolls = 10;
+    const pollIntervalMs = 1000;
+    let polls = 0;
 
-    // Also watch for future changes that might reset the background
-    const styleObserver = new MutationObserver(() => {
-      updateThumbnail();
-    });
-
-    // Observe the logo entity for any changes that might affect the thumbnail
-    styleObserver.observe(logoEntity, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style']
-    });
+    const pollId = setInterval(() => {
+      scanForLogos();
+      polls += 1;
+      if (processedLogoEntities.size >= 2 || polls >= maxPolls) {
+        clearInterval(pollId);
+      }
+    }, pollIntervalMs);
   } catch (error) {
     console.error('Error initializing custom logo:', error);
   }
