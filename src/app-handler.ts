@@ -1,5 +1,6 @@
 import { getMqttManager, type MediaState, type MqttManager } from './mqtt';
 import { MediaController } from './media-controller';
+import { parseSeekPosition } from './timecode';
 
 export class AppHandler {
   private destroyed = false;
@@ -234,8 +235,8 @@ export class AppHandler {
           );
           return;
         }
-        const position = parseInt(payload, 10);
-        if (!isNaN(position)) {
+        const position = parseSeekPosition(payload);
+        if (position !== null) {
           this._mediaController.handleSeekCommand(position);
         }
         break;
