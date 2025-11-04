@@ -12,6 +12,8 @@ Run `npm run build` for the production bundle and `npm run build:dev` when itera
 
 Use 2-space indentation, single quotes for strings, and module-scoped constants in `SCREAMING_SNAKE_CASE` only when exported configuration demands it. Prefer `camelCase` for functions and variables, `PascalCase` for classes and type aliases. Keep imports ordered by local/relative proximity, and colocate feature-specific stylesheets with their TypeScript counterpart. Linting (ESLint with Stylistic + RegExp rules) and Prettier must pass before submitting.
 
+Avoid defensive bloat. We accept the realities of a single, well-known runtime: don’t branch on every possible payload field name when we control the producer, and don’t sprinkle vendor-prefixed CSS or redundant guards unless we have proof they’re needed. Keep the code direct, readable, and shaped by actual platform variance—not hypotheticals. The shipping target is webOS 6 (Chromium 79), which has fully unprefixed Web APIs.
+
 ## Testing Guidelines
 
 Automated unit coverage is minimal; rely on the static analysis commands above plus device smoke tests. Add Playwright flows inside `docs/` or `tools/` when automation is practical, naming specs after the feature under test (e.g., `ui-config-panel.spec.ts`). Document manual test steps in PR descriptions, especially for MQTT interactions that require a Home Assistant broker.
