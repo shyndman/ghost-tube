@@ -1,4 +1,9 @@
-import { getMqttManager, type MediaState, type MqttManager } from './mqtt';
+import {
+  getMqttManager,
+  type MediaPlayerState,
+  type MediaState,
+  type MqttManager
+} from './mqtt';
 import { MediaController } from './media-controller';
 import { parseSeekPosition } from './timecode';
 
@@ -426,17 +431,15 @@ export class AppHandler {
 
   private convertPlayerStateToMqtt(
     playerState: string | null
-  ): 'playing' | 'paused' | 'stopped' | 'idle' {
+  ): MediaPlayerState {
     switch (playerState) {
       case 'PLAYING':
         return 'playing';
       case 'PAUSED':
         return 'paused';
-      case 'ENDED':
-        return 'stopped';
       case 'BUFFERING':
-        // Treat buffering as playing since it will resume
-        return 'playing';
+        return 'buffering';
+      case 'ENDED':
       case 'CUED':
       case 'UNSTARTED':
       default:

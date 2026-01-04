@@ -45,8 +45,17 @@ interface CustomAttributes {
   [key: string]: any;
 }
 
+// Valid Home Assistant MediaPlayerState values (excluding deprecated 'standby')
+type MediaPlayerState =
+  | 'off'
+  | 'on'
+  | 'idle'
+  | 'playing'
+  | 'paused'
+  | 'buffering';
+
 interface MediaState {
-  state: 'playing' | 'paused' | 'stopped' | 'idle';
+  state: MediaPlayerState;
   position: number | null;
   title: string | null;
   artist: string | null;
@@ -659,5 +668,5 @@ export function destroyMqttManager(): void {
 }
 
 // Types for external use
-export type { MediaState, MqttConnectionState };
+export type { MediaPlayerState, MediaState, MqttConnectionState };
 export { MqttManager };

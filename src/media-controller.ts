@@ -308,139 +308,77 @@ export class MediaController {
     return true;
   }
 
-  // Video metadata extraction methods
-  private extractVideoMetadata() {
+  // Video metadata extraction
+  private async extractVideoMetadata(): Promise<void> {
     console.info('[MEDIA-CONTROLLER] Extracting video metadata...');
-    this.extractVideoTitle();
-    this.extractVideoThumbnail();
-    this.extractCreatorName();
-    this.extractPublishDate();
-  }
 
-  private extractVideoTitle() {
-    console.info('[MEDIA-CONTROLLER] Looking for video title...');
-
-    // Try to find title element on YouTube TV watch page
-    const titleElement = document.querySelector(
-      'ytlr-video-title-tray yt-formatted-string'
-    );
-
-    if (!titleElement) {
-      console.info(
-        '[MEDIA-CONTROLLER] No title element found, retrying in 500ms...'
+    // Wait for watch page elements to be ready
+    const ready = await this.waitForWatchPage();
+    if (!ready) {
+      console.warn(
+        '[MEDIA-CONTROLLER] Watch page elements not found after timeout'
       );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractVideoTitle(), 500);
-      }
       return;
     }
 
-    const title = titleElement.textContent?.trim() || null;
+    // Extract all metadata (elements should all be present now)
+    this._videoTitle =
+      document
+        .querySelector('ytlr-video-title-tray yt-formatted-string')
+        ?.textContent?.trim() || null;
 
-    if (title) {
-      this._videoTitle = title;
-      console.info('[MEDIA-CONTROLLER] Video title extracted:', title);
-      this._appHandler.onVideoStateUpdate(this.getState());
-    } else {
-      console.info(
-        '[MEDIA-CONTROLLER] Title element found but no text content, retrying in 500ms...'
-      );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractVideoTitle(), 500);
-      }
-    }
+    this._creatorName =
+      document
+        .querySelector('ytlr-video-metadata-line yt-formatted-string')
+        ?.textContent?.trim() || null;
+
+    this._publishDate =
+      document
+        .querySelector(
+          'ytlr-video-metadata-line yt-formatted-string[aria-label]'
+        )
+        ?.textContent?.trim() || null;
+
+    // Thumbnail is constructed from video ID (no DOM needed)
+    this._videoThumbnail = this._videoId
+      ? `https://i.ytimg.com/vi/${this._videoId}/hqdefault.jpg`
+      : null;
+
+    console.info('[MEDIA-CONTROLLER] Metadata extracted:', {
+      title: this._videoTitle,
+      creator: this._creatorName,
+      publishDate: this._publishDate,
+      thumbnail: this._videoThumbnail
+    });
+
+    // Single publish with complete metadata
+    this._appHandler.onVideoStateUpdate(this.getState());
   }
 
-  private extractVideoThumbnail() {
-    console.info('[MEDIA-CONTROLLER] Extracting video thumbnail...');
+  /**
+   * Polls for the watch page title element to appear.
+   * Returns true when ready, false if destroyed or timed out.
+   */
+  private async waitForWatchPage(): Promise<boolean> {
+    const POLL_INTERVAL_MS = 100;
+    const MAX_ATTEMPTS = 50; // 5 seconds total
 
-    // Construct thumbnail URL from video ID (most reliable method)
-    if (this._videoId) {
-      this._videoThumbnail = `https://i.ytimg.com/vi/${this._videoId}/hqdefault.jpg`;
-      console.info(
-        '[MEDIA-CONTROLLER] Video thumbnail URL:',
-        this._videoThumbnail
-      );
-    } else {
-      console.info(
-        '[MEDIA-CONTROLLER] No video ID available for thumbnail construction'
-      );
-    }
-  }
-
-  private extractCreatorName() {
-    console.info('[MEDIA-CONTROLLER] Looking for creator name...');
-
-    // Try to find creator name in the metadata line (first yt-formatted-string is the channel)
-    const creatorElement = document.querySelector(
-      'ytlr-video-metadata-line yt-formatted-string'
-    );
-
-    if (!creatorElement) {
-      console.info(
-        '[MEDIA-CONTROLLER] No creator element found, retrying in 500ms...'
-      );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractCreatorName(), 500);
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (this.destroyed) {
+        return false;
       }
-      return;
+
+      const titleElement = document.querySelector(
+        'ytlr-video-title-tray yt-formatted-string'
+      );
+      if (titleElement?.textContent?.trim()) {
+        return true;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 
-    const creatorName = creatorElement.textContent?.trim() || null;
-
-    if (creatorName) {
-      this._creatorName = creatorName;
-      console.info('[MEDIA-CONTROLLER] Creator name extracted:', creatorName);
-      this._appHandler.onVideoStateUpdate(this.getState());
-    } else {
-      console.info(
-        '[MEDIA-CONTROLLER] Creator element found but no text content, retrying in 500ms...'
-      );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractCreatorName(), 500);
-      }
-    }
-  }
-
-  private extractPublishDate() {
-    console.info('[MEDIA-CONTROLLER] Looking for publish date...');
-
-    // The date element is the only one with aria-label in the metadata line
-    const dateElement = document.querySelector(
-      'ytlr-video-metadata-line yt-formatted-string[aria-label]'
-    );
-
-    if (!dateElement) {
-      console.info(
-        '[MEDIA-CONTROLLER] No date element found, retrying in 500ms...'
-      );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractPublishDate(), 500);
-      }
-      return;
-    }
-
-    const publishDate = dateElement.textContent?.trim() || null;
-    const ariaLabel = dateElement.getAttribute('aria-label');
-
-    if (publishDate) {
-      this._publishDate = publishDate;
-      console.info('[MEDIA-CONTROLLER] Publish date extracted:', publishDate);
-      if (ariaLabel) {
-        console.info(
-          '[MEDIA-CONTROLLER] Full publish date (aria-label):',
-          ariaLabel
-        );
-      }
-      this._appHandler.onVideoStateUpdate(this.getState());
-    } else {
-      console.info(
-        '[MEDIA-CONTROLLER] Date element found but no text content, retrying in 500ms...'
-      );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractPublishDate(), 500);
-      }
-    }
+    return false;
   }
 
   getState() {
