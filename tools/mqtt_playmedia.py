@@ -15,9 +15,9 @@ from typing import Sequence
 from paho.mqtt.client import Client, MQTTMessageInfo
 
 
-def build_payload(video_id: str, as_json: bool) -> str:
+def build_payload(video_id: str, as_json: bool, current_time: int = 0) -> str:
     if as_json:
-        return json.dumps({"media_content_id": video_id})
+        return json.dumps({"media_content_id": video_id, "extra": {"current_time": current_time}})
     return video_id
 
 
