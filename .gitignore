@@ -1,3 +1,4 @@
+.mcp.json
 *.ipk
 /node_modules/
 /dist/
