@@ -405,20 +405,9 @@ export class MediaController {
   private extractPublishDate() {
     console.info('[MEDIA-CONTROLLER] Looking for publish date...');
 
-    // Try to find publish date in the metadata line (last detail text element)
-    const metadataLine = document.querySelector('ytlr-video-metadata-line');
-    if (!metadataLine) {
-      console.info(
-        '[MEDIA-CONTROLLER] No metadata line found, retrying in 500ms...'
-      );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractPublishDate(), 500);
-      }
-      return;
-    }
-
-    const dateElement = metadataLine.querySelector(
-      'yt-formatted-string[aria-label]'
+    // The date element is the only one with aria-label in the metadata line
+    const dateElement = document.querySelector(
+      'ytlr-video-metadata-line yt-formatted-string[aria-label]'
     );
 
     if (!dateElement) {
