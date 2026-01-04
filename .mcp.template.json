@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ghost-tube": {
+      "command": "npx",
+      "args": ["webos-devtools-mcp", "--endpoint="]
+    }
+  }
+}

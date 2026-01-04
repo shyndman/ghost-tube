@@ -2,7 +2,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const APP_ID = 'youtube.leanback.v4';
-const MCP_PATH = '.mcp.json';
+const MCP_TEMPLATE_PATH = '.mcp.template.json';
+const MCP_OUTPUT_PATH = '.mcp.json';
 
 console.log('🔍 Starting webOS inspector...');
 
@@ -27,10 +28,12 @@ inspectProcess.stdout.on('data', (data) => {
         .then((targets) => {
           if (targets.length > 0 && targets[0].webSocketDebuggerUrl) {
             const wsUrl = targets[0].webSocketDebuggerUrl;
-            const mcp = JSON.parse(readFileSync(MCP_PATH, 'utf8'));
+            const mcp = JSON.parse(readFileSync(MCP_TEMPLATE_PATH, 'utf8'));
             mcp.mcpServers['ghost-tube'].args[1] = `--endpoint=${wsUrl}`;
-            writeFileSync(MCP_PATH, JSON.stringify(mcp, null, 2) + '\n');
-            console.log(`📝 Updated ${MCP_PATH} with endpoint: ${wsUrl}`);
+            writeFileSync(MCP_OUTPUT_PATH, JSON.stringify(mcp, null, 2) + '\n');
+            console.log(
+              `📝 Generated ${MCP_OUTPUT_PATH} with endpoint: ${wsUrl}`
+            );
           }
         })
         .catch((err) => {
