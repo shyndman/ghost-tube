@@ -2,6 +2,11 @@ import { getMqttManager, type MediaState, type MqttManager } from './mqtt';
 import { MediaController } from './media-controller';
 import { parseSeekPosition } from './timecode';
 
+interface PendingPlayMediaCommand {
+  videoId: string;
+  seekPosition: number | null;
+}
+
 export class AppHandler {
   private destroyed = false;
 
@@ -14,6 +19,7 @@ export class AppHandler {
 
   // MediaController management
   private _mediaController: MediaController | null = null;
+  private _pendingPlayMediaCommand: PendingPlayMediaCommand | null = null;
 
   constructor() {
     console.info('[APP-HANDLER] Creating AppHandler...');
@@ -23,6 +29,11 @@ export class AppHandler {
     this.mqttManager.setOnIdleStateCallback(() => {
       console.info('[APP-HANDLER] TV standby - publishing idle state');
       this.publishIdleState();
+    });
+
+    this.mqttManager.setOnResumeCallback(() => {
+      console.info('[APP-HANDLER] TV resume detected - refreshing MQTT state');
+      this.publishStateSnapshot();
     });
 
     // Set up media command callback
@@ -38,6 +49,14 @@ export class AppHandler {
 
     // Initialize navigation monitoring
     this.initNavigationMonitoring();
+  }
+
+  private publishStateSnapshot() {
+    if (this._mediaController) {
+      this.publishMqttState(this._mediaController.getState());
+    } else {
+      this.publishIdleState();
+    }
   }
 
   private initNavigationMonitoring() {
@@ -107,6 +126,7 @@ export class AppHandler {
       this.mqttManager
     );
     this._mediaController.init();
+    this.applyPendingPlayMediaSeek();
   }
 
   private destroyMediaController() {
@@ -116,11 +136,7 @@ export class AppHandler {
     }
 
     console.info('[APP-HANDLER] Destroying MediaController...');
-    try {
-      this._mediaController.destroy();
-    } catch (error) {
-      console.error('[APP-HANDLER] Error destroying MediaController:', error);
-    }
+    this._mediaController.destroy();
     this._mediaController = null;
   }
 
@@ -241,22 +257,129 @@ export class AppHandler {
         }
         break;
       case 'playmedia':
-        let videoId: string;
-        try {
-          // Try to parse as JSON first
-          const parsedCommand = JSON.parse(payload);
-          videoId = parsedCommand.media_content_id;
-        } catch {
-          // If not JSON, treat as plain video ID
-          videoId = payload.trim();
-        }
-        if (videoId) {
-          this.navigateToVideo(videoId);
-        }
+        this.handlePlayMediaCommand(payload);
         break;
       default:
         console.warn(`[APP-HANDLER] Unknown media command: ${command}`);
     }
+  }
+
+  private handlePlayMediaCommand(payload: string) {
+    const command = this.parsePlayMediaPayload(payload);
+    if (!command) {
+      console.warn('[APP-HANDLER] playmedia command missing media_content_id');
+      return;
+    }
+
+    const { videoId, seekPosition } = command;
+
+    this._pendingPlayMediaCommand =
+      seekPosition !== null ? { videoId, seekPosition } : null;
+
+    if (
+      seekPosition !== null &&
+      this._mediaController &&
+      this._mediaController.videoId === videoId
+    ) {
+      console.info(
+        `[APP-HANDLER] Applying playmedia seek immediately for video: ${videoId}`
+      );
+      this._mediaController.handleSeekCommand(seekPosition);
+      this._pendingPlayMediaCommand = null;
+    }
+
+    this.navigateToVideo(videoId);
+    this.applyPendingPlayMediaSeek();
+  }
+
+  private parsePlayMediaPayload(
+    payload: string
+  ): PendingPlayMediaCommand | null {
+    const trimmed = payload.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+      return { videoId: trimmed, seekPosition: null };
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== 'object') {
+        if (typeof parsed === 'string') {
+          const videoId = parsed.trim();
+          return videoId ? { videoId, seekPosition: null } : null;
+        }
+        return null;
+      }
+
+      const command = parsed as Record<string, unknown>;
+      const videoIdValue = command.media_content_id;
+      const videoId =
+        typeof videoIdValue === 'string' ? videoIdValue.trim() : null;
+      if (!videoId) {
+        return null;
+      }
+
+      const extra =
+        command.extra && typeof command.extra === 'object'
+          ? (command.extra as Record<string, unknown>).current_time
+          : undefined;
+      const seekSource =
+        extra !== undefined
+          ? extra
+          : (command as Record<string, unknown>).current_time;
+      const seekPosition = this.parseSeekValue(seekSource);
+
+      return { videoId, seekPosition };
+    } catch (error) {
+      console.warn(
+        '[APP-HANDLER] Failed to parse playmedia payload, using raw string:',
+        error
+      );
+      return { videoId: trimmed, seekPosition: null };
+    }
+  }
+
+  private parseSeekValue(value: unknown): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === 'string') {
+      return parseSeekPosition(value);
+    }
+
+    return null;
+  }
+
+  private applyPendingPlayMediaSeek() {
+    if (!this._mediaController || !this._pendingPlayMediaCommand) {
+      return;
+    }
+
+    if (
+      this._pendingPlayMediaCommand.videoId !== this._mediaController.videoId
+    ) {
+      return;
+    }
+
+    const { seekPosition } = this._pendingPlayMediaCommand;
+    this._pendingPlayMediaCommand = null;
+
+    if (seekPosition === null) {
+      return;
+    }
+
+    console.info(
+      `[APP-HANDLER] Applying deferred playmedia seek for video: ${this._mediaController.videoId}`
+    );
+    this._mediaController.handleSeekCommand(seekPosition);
   }
 
   // Called by MediaController to report video state
@@ -269,58 +392,36 @@ export class AppHandler {
   }
 
   private publishMqttState(videoState: any) {
-    try {
-      if (!this.mqttManager.isConnected()) {
-        console.debug(
-          '[APP-HANDLER] MQTT not connected, skipping state publish'
-        );
-        return;
-      }
+    // Convert video state to MQTT media state format
+    const mediaState: MediaState = {
+      state: this.convertPlayerStateToMqtt(videoState.playerState),
+      position: videoState.currentTime,
+      title: videoState.title,
+      artist: videoState.creator,
+      albumart: videoState.thumbnail,
+      duration: videoState.duration,
+      mediatype: 'video',
+      videoId: videoState.videoId
+    };
 
-      // Convert video state to MQTT media state format
-      const mediaState: MediaState = {
-        state: this.convertPlayerStateToMqtt(videoState.playerState),
-        position: videoState.currentTime,
-        title: videoState.title,
-        artist: videoState.creator,
-        albumart: videoState.thumbnail,
-        duration: videoState.duration,
-        mediatype: 'video',
-        videoId: videoState.videoId
-      };
-
-      this.mqttManager.publishMediaState(mediaState);
-      console.info('[APP-HANDLER] Published MQTT state:', mediaState);
-    } catch (error) {
-      console.error('[APP-HANDLER] Error publishing MQTT state:', error);
-    }
+    this.mqttManager.publishMediaState(mediaState);
+    console.info('[APP-HANDLER] Published MQTT state:', mediaState);
   }
 
   private publishIdleState() {
-    try {
-      if (!this.mqttManager.isConnected()) {
-        console.debug(
-          '[APP-HANDLER] MQTT not connected, skipping idle state publish'
-        );
-        return;
-      }
+    const idleState: MediaState = {
+      state: 'idle',
+      position: null,
+      title: null,
+      artist: null,
+      albumart: null,
+      duration: null,
+      mediatype: 'video',
+      videoId: null
+    };
 
-      const idleState: MediaState = {
-        state: 'idle',
-        position: null,
-        title: null,
-        artist: null,
-        albumart: null,
-        duration: null,
-        mediatype: 'video',
-        videoId: null
-      };
-
-      this.mqttManager.publishMediaState(idleState);
-      console.info('[APP-HANDLER] Published MQTT idle state');
-    } catch (error) {
-      console.error('[APP-HANDLER] Error publishing MQTT idle state:', error);
-    }
+    this.mqttManager.publishMediaState(idleState);
+    console.info('[APP-HANDLER] Published MQTT idle state');
   }
 
   private convertPlayerStateToMqtt(
