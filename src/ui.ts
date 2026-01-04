@@ -315,6 +315,22 @@ function showOptionsPanel(visible: boolean = true): void {
 
 window.ytaf_showOptionsPanel = showOptionsPanel;
 
+/**
+ * Returns true if the watch page overlay is currently hidden.
+ */
+function isWatchOverlayHidden(): boolean {
+  if (!document.body.classList.contains('WEB_PAGE_TYPE_WATCH')) {
+    return false;
+  }
+  const overlayBg = document.querySelector(
+    'ytlr-watch-default > div:first-child'
+  );
+  if (!overlayBg) {
+    return false;
+  }
+  return getComputedStyle(overlayBg).opacity === '0';
+}
+
 const eventHandler = (evt: KeyboardEvent): boolean => {
   console.info(
     'Key event:',
@@ -323,6 +339,23 @@ const eventHandler = (evt: KeyboardEvent): boolean => {
     evt.keyCode,
     evt.defaultPrevented
   );
+
+  // OK button: toggle play/pause when overlay is hidden
+  if (evt.type === 'keydown' && evt.keyCode === 13 && isWatchOverlayHidden()) {
+    const video = document.querySelector('video');
+    if (video) {
+      if (video.paused) {
+        // Resume playback, suppress overlay
+        video.play();
+        evt.preventDefault();
+        evt.stopPropagation();
+        return false;
+      } else {
+        // Pause playback, let overlay appear
+        video.pause();
+      }
+    }
+  }
 
   if (getKeyColor(evt.charCode) === 'green') {
     console.info('Taking over!');
