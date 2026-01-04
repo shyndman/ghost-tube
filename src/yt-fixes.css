@@ -1,6 +1,7 @@
 /* Fixes transparency effect for the video player */
 .ytLrWatchDefaultShadow,
-.ytLrWatchDefault2025Shadow {
+.ytLrWatchDefault2025Shadow,
+ytlr-watch-default > div:first-child {
   background-image: linear-gradient(
     to bottom,
     rgba(0, 0, 0, 0) 0,
