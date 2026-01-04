@@ -322,7 +322,7 @@ export class MediaController {
 
     // Try to find title element on YouTube TV watch page
     const titleElement = document.querySelector(
-      'yt-formatted-string.ytFormattedStringHost.ytLrVideoTitleTrayTitleText'
+      'ytlr-video-title-tray yt-formatted-string'
     );
 
     if (!titleElement) {
@@ -335,10 +335,7 @@ export class MediaController {
       return;
     }
 
-    const title =
-      titleElement.textContent?.trim() ||
-      titleElement.getAttribute('data-title') ||
-      null;
+    const title = titleElement.textContent?.trim() || null;
 
     if (title) {
       this._videoTitle = title;
@@ -374,20 +371,9 @@ export class MediaController {
   private extractCreatorName() {
     console.info('[MEDIA-CONTROLLER] Looking for creator name...');
 
-    // Try to find creator name in the metadata line
-    const metadataLine = document.querySelector('ytlr-video-metadata-line');
-    if (!metadataLine) {
-      console.info(
-        '[MEDIA-CONTROLLER] No metadata line found, retrying in 500ms...'
-      );
-      if (!this.destroyed) {
-        setTimeout(() => this.extractCreatorName(), 500);
-      }
-      return;
-    }
-
-    const creatorElement = metadataLine.querySelector(
-      'yt-formatted-string.ytLrVideoMetadataLineDetailTexts:first-child'
+    // Try to find creator name in the metadata line (first yt-formatted-string is the channel)
+    const creatorElement = document.querySelector(
+      'ytlr-video-metadata-line yt-formatted-string'
     );
 
     if (!creatorElement) {
