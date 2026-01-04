@@ -126,6 +126,7 @@ class MqttManager {
   // Visibility change handling
   private isVisible = true;
   private onIdleStateCallback: (() => void) | null = null;
+  private onResumeCallback: (() => void) | null = null;
   private boundVisibilityChangeHandler = this.handleVisibilityChange.bind(this);
 
   // Media command callback
@@ -134,6 +135,7 @@ class MqttManager {
   constructor() {
     console.info('[MQTT] Creating MqttManager...');
     this.updateTopics();
+    this.isVisible = !document.hidden;
     this.initVisibilityChangeListener();
     this.initConfigChangeListener();
   }
@@ -154,22 +156,33 @@ class MqttManager {
     this.onIdleStateCallback = callback;
   }
 
+  setOnResumeCallback(callback: () => void) {
+    this.onResumeCallback = callback;
+  }
+
   setMediaCommandCallback(callback: MediaCommandCallback) {
     this.mediaCommandCallback = callback;
   }
 
   private initVisibilityChangeListener() {
     document.addEventListener(
-      'webkitvisibilitychange',
+      'visibilitychange',
       this.boundVisibilityChangeHandler
     );
-    console.info('[MQTT] WebKit visibility change listener initialized');
+    console.info('[MQTT] Visibility change listener initialized');
   }
 
-  private handleVisibilityChange() {
+  private handleVisibilityChange(event?: Event) {
+    const eventType = event?.type ?? 'unknown';
     const wasVisible = this.isVisible;
-    this.isVisible = !(document as any).webkitHidden;
+    const hidden = document.hidden;
+    this.isVisible = !hidden;
 
+    console.info('[MQTT] Visibility change event', {
+      event: eventType,
+      documentHidden: hidden,
+      previousVisible: wasVisible
+    });
     console.info(
       `[MQTT] Visibility changed: ${wasVisible ? 'visible' : 'hidden'} -> ${this.isVisible ? 'visible' : 'hidden'}`
     );
@@ -206,6 +219,10 @@ class MqttManager {
 
     // Resume position updates
     this.startPositionUpdates();
+
+    if (this.onResumeCallback) {
+      this.onResumeCallback();
+    }
   }
 
   async connect(): Promise<void> {
@@ -235,7 +252,7 @@ class MqttManager {
         },
         reconnectPeriod: 0, // Disable automatic reconnection, we'll handle it manually
         connectTimeout: 10000,
-        keepalive: 20,
+        keepalive: 5,
         clean: true
       };
 
@@ -491,7 +508,13 @@ class MqttManager {
   }
 
   publishMediaState(state: MediaState): void {
-    if (!this.client || !this.client.connected) return;
+    this.publishMediaStateNow(state);
+  }
+
+  private publishMediaStateNow(state: MediaState): void {
+    if (!this.client || !this.client.connected) {
+      return;
+    }
 
     // Always publish state with retain
     this.publish(this.topics.state, state.state, { retain: true });
@@ -588,10 +611,10 @@ class MqttManager {
 
     // Remove visibility change listener
     document.removeEventListener(
-      'webkitvisibilitychange',
+      'visibilitychange',
       this.boundVisibilityChangeHandler
     );
-    console.info('[MQTT] WebKit visibility change listener removed');
+    console.info('[MQTT] Visibility change listener removed');
 
     if (this.client) {
       // Publish offline status before disconnecting
