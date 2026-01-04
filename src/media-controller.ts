@@ -11,6 +11,7 @@ export class MediaController {
   private destroyed = false;
   private lastReportedState: PlayerState | null = null;
   private lastReportedTime: number = 0;
+  private pendingSeekSeconds: number | null = null;
 
   // Video metadata
   private _videoTitle: string | null = null;
@@ -122,95 +123,61 @@ export class MediaController {
     video.addEventListener('seeked', this.boundHandlers.onVideoSeeked);
 
     console.info('[MEDIA-CONTROLLER] Attached all video event listeners');
+    this.tryApplyPendingSeek();
   }
 
   // Media control command handlers
   handlePlayCommand(): void {
-    try {
-      console.info('[MEDIA-CONTROLLER] Play command received');
+    console.info('[MEDIA-CONTROLLER] Play command received');
 
-      if (this.video) {
-        this.video
-          .play()
-          .then(() => {
-            console.info('[MEDIA-CONTROLLER] Video playback started');
-          })
-          .catch((error) => {
-            console.error(
-              '[MEDIA-CONTROLLER] Error starting video playback:',
-              error
-            );
-          });
-      } else {
-        console.warn(
-          '[MEDIA-CONTROLLER] No video element found for play command'
-        );
-      }
-    } catch (error) {
-      console.error('[MEDIA-CONTROLLER] Error handling play command:', error);
+    if (this.video) {
+      this.video
+        .play()
+        .then(() => {
+          console.info('[MEDIA-CONTROLLER] Video playback started');
+        })
+        .catch((error) => {
+          console.error(
+            '[MEDIA-CONTROLLER] Error starting video playback:',
+            error
+          );
+        });
+    } else {
+      console.warn(
+        '[MEDIA-CONTROLLER] No video element found for play command'
+      );
     }
   }
 
   handlePauseCommand(): void {
-    try {
-      console.info('[MEDIA-CONTROLLER] Pause command received');
+    console.info('[MEDIA-CONTROLLER] Pause command received');
 
-      if (this.video) {
-        this.video.pause();
-        console.info('[MEDIA-CONTROLLER] Video playback paused');
-      } else {
-        console.warn(
-          '[MEDIA-CONTROLLER] No video element found for pause command'
-        );
-      }
-    } catch (error) {
-      console.error('[MEDIA-CONTROLLER] Error handling pause command:', error);
+    if (this.video) {
+      this.video.pause();
+      console.info('[MEDIA-CONTROLLER] Video playback paused');
+    } else {
+      console.warn(
+        '[MEDIA-CONTROLLER] No video element found for pause command'
+      );
     }
   }
 
   handleStopCommand(): void {
-    try {
-      console.info('[MEDIA-CONTROLLER] Stop command received');
+    console.info('[MEDIA-CONTROLLER] Stop command received');
 
-      // Navigate to YouTube home page to stop current video
-      window.location.hash = '#/';
-      console.info('[MEDIA-CONTROLLER] Navigated to YouTube home page');
-    } catch (error) {
-      console.error('[MEDIA-CONTROLLER] Error handling stop command:', error);
-    }
+    // Navigate to YouTube home page to stop current video
+    window.location.hash = '#/';
+    console.info('[MEDIA-CONTROLLER] Navigated to YouTube home page');
   }
 
   handleSeekCommand(position: number): void {
-    try {
+    console.info(`[MEDIA-CONTROLLER] Seeking to position: ${position} seconds`);
+
+    this.pendingSeekSeconds = position;
+    const applied = this.tryApplyPendingSeek();
+    if (!applied) {
       console.info(
-        `[MEDIA-CONTROLLER] Seeking to position: ${position} seconds`
-      );
-
-      if (this.video) {
-        this.video.currentTime = position;
-        console.info(`[MEDIA-CONTROLLER] Seeked to ${position} seconds`);
-      } else {
-        console.warn(
-          '[MEDIA-CONTROLLER] No video element found for seek command'
-        );
-      }
-    } catch (error) {
-      console.error('[MEDIA-CONTROLLER] Error handling seek command:', error);
-    }
-  }
-
-  handlePlayMediaCommand(videoId: string): void {
-    try {
-      console.info(`[MEDIA-CONTROLLER] Playing video: ${videoId}`);
-
-      // Navigate to the video
-      const newUrl = `#/watch?v=${videoId}`;
-      window.location.hash = newUrl;
-      console.info(`[MEDIA-CONTROLLER] Navigated to ${newUrl}`);
-    } catch (error) {
-      console.error(
-        '[MEDIA-CONTROLLER] Error handling playmedia command:',
-        error
+        '[MEDIA-CONTROLLER] Video not ready, deferring seek until metadata is available'
       );
     }
   }
@@ -302,6 +269,8 @@ export class MediaController {
       );
       this._appHandler.onVideoStateUpdate(this.getState());
     }
+
+    this.tryApplyPendingSeek();
   }
 
   private onVideoSeeking() {
@@ -316,6 +285,27 @@ export class MediaController {
       newTime: this.video?.currentTime,
       timestamp: Date.now()
     });
+  }
+
+  private tryApplyPendingSeek(): boolean {
+    if (this.pendingSeekSeconds === null) {
+      return false;
+    }
+
+    if (!this.video) {
+      return false;
+    }
+
+    const duration = this.video.duration;
+    if (Number.isNaN(duration) || this.video.readyState < 1) {
+      return false;
+    }
+
+    const target = this.pendingSeekSeconds;
+    this.pendingSeekSeconds = null;
+    this.video.currentTime = target;
+    console.info(`[MEDIA-CONTROLLER] Seeked to ${target} seconds`);
+    return true;
   }
 
   // Video metadata extraction methods
