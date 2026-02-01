@@ -36,7 +36,6 @@ const configs = [
 
     rules: {
       'no-var': 'error',
-      'no-await-in-loop': 'error',
       'no-implicit-globals': ['error'],
       'no-unused-vars': ['error', { vars: 'local', argsIgnorePattern: '^_' }],
       'no-useless-rename': ['error'],

@@ -4,7 +4,7 @@ import { configRead, configAddChangeListener } from './config';
 
 // MQTT Configuration Constants
 const MQTT_CONFIG = {
-  broker: '192.168.86.29',
+  broker: 'ha-mosquitto-ws.don',
   port: 8083,
   username: undefined, // TODO: Set if needed
   password: undefined, // TODO: Set if needed
