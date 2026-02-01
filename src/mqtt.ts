@@ -5,7 +5,7 @@ import { configRead, configAddChangeListener } from './config';
 // MQTT Configuration Constants
 const MQTT_CONFIG = {
   broker: 'ha-mosquitto-ws.don',
-  port: 8083,
+  port: 80,
   username: undefined, // TODO: Set if needed
   password: undefined, // TODO: Set if needed
   clientId: 'youtube-webos-' + Math.random().toString(16).substring(2, 10)
