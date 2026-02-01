@@ -461,7 +461,7 @@ class MqttManager {
   }
 
   private publishAvailability(available: boolean): void {
-    this.publish(this.topics.available, available ? 'ON' : 'OFF', {
+    this.publish(this.topics.available, available ? 'online' : 'offline', {
       retain: true
     });
   }
